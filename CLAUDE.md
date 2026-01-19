@@ -111,6 +111,69 @@ SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome
 
 Screenshot settings are in `config/screenshot.php`.
 
+## AWS S3 & CloudFront Setup
+
+Screenshots are stored on S3 and served via CloudFront for production deployments.
+
+### 1. Create an S3 Bucket
+
+1. Go to AWS Console → S3 → Create bucket
+2. Choose a unique bucket name (e.g., `myapp-screenshots`)
+3. Select your preferred region (e.g., `us-east-1`)
+4. Uncheck "Block all public access" (screenshots are served via CloudFront)
+5. Create the bucket
+
+### 2. Create an IAM User
+
+Create an IAM user with programmatic access and attach this policy:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::myapp-screenshots",
+                "arn:aws:s3:::myapp-screenshots/*"
+            ]
+        }
+    ]
+}
+```
+
+### 3. Create a CloudFront Distribution
+
+1. Go to CloudFront → Create distribution
+2. **Origin domain**: Select your S3 bucket
+3. **Origin access**: Use "Origin access control settings (recommended)" and create a new OAC
+4. **Viewer protocol policy**: Redirect HTTP to HTTPS
+5. **Cache policy**: Use `CachingOptimized`
+6. After creation, copy the provided S3 bucket policy to your bucket's permissions
+
+### 4. Configure Environment Variables
+
+Add to your `.env`:
+
+```
+FILESYSTEM_DISK=s3
+SCREENSHOT_STORAGE_DISK=s3
+
+AWS_ACCESS_KEY_ID=your-access-key-id
+AWS_SECRET_ACCESS_KEY=your-secret-access-key
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=myapp-screenshots
+AWS_URL=https://d1234abcd.cloudfront.net
+```
+
+The `AWS_URL` setting makes screenshot URLs use your CloudFront distribution instead of direct S3 URLs.
+
 ## Queue Workers
 
 Screenshot capture runs asynchronously. Start workers with:
