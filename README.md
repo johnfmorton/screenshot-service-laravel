@@ -1,59 +1,168 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# URL Screenshot Service
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A Laravel API that captures screenshots of URLs using headless Chrome and returns image URLs for full-size and thumbnail versions.
 
-## About Laravel
+## Requirements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- [DDEV](https://ddev.readthedocs.io/en/stable/) for local development
+- Docker
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Installation
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+# Clone the repository
+git clone <repository-url>
+cd screenshot-service
 
-## Learning Laravel
+# Start DDEV
+ddev start
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+# Install dependencies
+ddev composer install
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Copy environment file and generate app key
+cp .env.example .env
+ddev artisan key:generate
 
-## Laravel Sponsors
+# Run migrations
+ddev artisan migrate
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Create an API key (see CLI Commands below)
+ddev artisan apikey:create "my-app"
+```
 
-### Premium Partners
+The service will be available at `https://screenshot-service.ddev.site`
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+## CLI Commands
 
-## Contributing
+### Create an API Key
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+ddev artisan apikey:create {name} [--rate-limit=]
+```
 
-## Code of Conduct
+Creates a new API key for authenticating with the screenshot API.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+**Arguments:**
+- `name` (required): A name to identify this API key
 
-## Security Vulnerabilities
+**Options:**
+- `--rate-limit`: Maximum requests per minute (optional)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Example:**
+```bash
+# Create a basic API key
+ddev artisan apikey:create "my-application"
+
+# Create an API key with rate limiting
+ddev artisan apikey:create "my-application" --rate-limit=60
+```
+
+The command outputs the API key once. Copy it immediately—it cannot be retrieved later.
+
+### List API Keys
+
+```bash
+ddev artisan apikey:list
+```
+
+Lists all API keys with their ID, name, status, rate limit, screenshot count, and creation date.
+
+## API Usage
+
+All API requests (except documentation) require an `X-API-Key` header.
+
+### Create a Screenshot
+
+```
+POST /api/screenshots
+```
+
+**Headers:**
+```
+X-API-Key: your-api-key
+Content-Type: application/json
+```
+
+**Request Body:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string | Yes | URL to capture (max 2048 chars) |
+| `viewport_width` | integer | No | Viewport width in pixels (320-3840, default: 1280) |
+| `viewport_height` | integer | No | Viewport height in pixels (240-2160, default: 800) |
+| `max_width` | integer | No | Maximum width for the full-size image (100-3840) |
+| `thumbnail_width` | integer | No | Thumbnail width in pixels (50-1920, default: 400) |
+| `thumbnail_height` | integer | No | Thumbnail height in pixels (50-1920, default: 300) |
+| `force_refresh` | boolean | No | Bypass cache and capture fresh screenshot (default: false) |
+| `webhook_url` | string | No | URL to receive completion webhook |
+| `webhook_secret` | string | No | Secret for webhook signature verification |
+
+**Example:**
+```bash
+curl -X POST https://screenshot-service.ddev.site/api/screenshots \
+  -H "X-API-Key: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "id": "9e5b4a3c-...",
+  "status": "pending",
+  "poll_url": "https://screenshot-service.ddev.site/api/screenshots/9e5b4a3c-..."
+}
+```
+
+### Check Screenshot Status
+
+```
+GET /api/screenshots/{id}
+```
+
+**Response (completed):**
+```json
+{
+  "id": "9e5b4a3c-...",
+  "status": "completed",
+  "url": "https://example.com",
+  "image_url": "https://s3.../full.png",
+  "thumbnail_url": "https://s3.../thumb.png"
+}
+```
+
+**Status values:** `pending`, `processing`, `completed`, `failed`
+
+### Delete a Screenshot
+
+```
+DELETE /api/screenshots/{id}
+```
+
+Invalidates a cached screenshot.
+
+## Running Queue Workers
+
+Screenshot capture runs asynchronously. Start workers with:
+
+```bash
+ddev artisan queue:work --tries=3
+```
+
+## Configuration
+
+Key environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SCREENSHOT_TTL_HOURS` | 24 | Hours to cache screenshots |
+| `SCREENSHOT_DEFAULT_VIEWPORT_WIDTH` | 1280 | Default viewport width |
+| `SCREENSHOT_DEFAULT_VIEWPORT_HEIGHT` | 800 | Default viewport height |
+| `SCREENSHOT_DEFAULT_THUMBNAIL_WIDTH` | 400 | Default thumbnail width |
+| `SCREENSHOT_DEFAULT_THUMBNAIL_HEIGHT` | 300 | Default thumbnail height |
+| `SCREENSHOT_CHROME_PATH` | /usr/bin/chromium | Path to Chrome executable |
+| `SCREENSHOT_STORAGE_DISK` | s3 | Storage disk (s3 or public) |
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+[MIT license](https://opensource.org/licenses/MIT)
