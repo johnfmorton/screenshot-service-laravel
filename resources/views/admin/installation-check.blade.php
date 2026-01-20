@@ -32,6 +32,42 @@
                                 @endif
                             </td>
                         </tr>
+                        @if(isset($check['install_hints']))
+                            <tr>
+                                <td colspan="3" style="padding: 0;">
+                                    <div style="background: var(--bg-secondary); padding: 16px; border-top: 1px solid var(--border-color);">
+                                        <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 12px;">
+                                            Installation Instructions for {{ $check['install_hints']['os'] }}
+                                        </div>
+
+                                        @foreach($check['install_hints']['instructions'] as $instruction)
+                                            <div style="margin-bottom: 12px;">
+                                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 6px;">
+                                                    {{ $instruction['title'] }}
+                                                </div>
+                                                <pre style="background: var(--bg-primary); padding: 12px; border-radius: 6px; margin: 0; overflow-x: auto; font-size: 0.8125rem; border: 1px solid var(--border-color);">{{ implode("\n", $instruction['commands']) }}</pre>
+                                            </div>
+                                        @endforeach
+
+                                        @if($check['install_hints']['dependencies'])
+                                            <div style="margin-bottom: 12px;">
+                                                <div style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 6px;">
+                                                    {{ $check['install_hints']['dependencies']['title'] }}
+                                                </div>
+                                                <pre style="background: var(--bg-primary); padding: 12px; border-radius: 6px; margin: 0; overflow-x: auto; font-size: 0.8125rem; border: 1px solid var(--border-color);">{{ implode("\n", $check['install_hints']['dependencies']['commands']) }}</pre>
+                                            </div>
+                                        @endif
+
+                                        <div style="margin-top: 16px; padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                                            <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">
+                                                Update your .env file
+                                            </div>
+                                            <pre style="background: var(--bg-primary); padding: 8px 12px; border-radius: 4px; margin: 0; font-size: 0.8125rem; border: 1px solid var(--border-color);">SCREENSHOT_CHROME_PATH={{ $check['install_hints']['env_path'] }}</pre>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                 </tbody>
             </table>

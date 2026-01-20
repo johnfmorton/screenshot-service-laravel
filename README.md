@@ -170,6 +170,47 @@ Key environment variables:
 | `SCREENSHOT_CHROME_PATH` | /usr/bin/chromium | Path to Chrome executable |
 | `SCREENSHOT_STORAGE_DISK` | s3 | Storage disk (s3 or public) |
 
+## Production Deployment
+
+### Chrome/Chromium Installation
+
+The screenshot service requires Chrome or Chromium to be installed on your production server. The Installation Check page in the admin panel (`/admin/installation-check`) will show an error if the browser is not found.
+
+**Ubuntu/Debian:**
+
+```bash
+# Option 1: Install Chromium (recommended - lighter weight)
+sudo apt update
+sudo apt install -y chromium-browser
+
+# Option 2: Install Google Chrome
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb
+sudo apt --fix-broken install
+```
+
+**Required dependencies for headless Chrome:**
+
+```bash
+sudo apt install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+  libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 \
+  libpangocairo-1.0-0 libgtk-3-0
+```
+
+**Find the installed browser path:**
+
+```bash
+which google-chrome        # Google Chrome
+which chromium-browser     # Chromium on Ubuntu
+which chromium             # Chromium on some distros
+```
+
+**Update your `.env` with the correct path:**
+
+```bash
+SCREENSHOT_CHROME_PATH=/usr/bin/chromium-browser   # Adjust based on your installation
+```
+
 ## License
 
 [MIT license](https://opensource.org/licenses/MIT)

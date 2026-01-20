@@ -87,16 +87,21 @@ class InstallationCheckController extends Controller
     {
         $storageDisk = config('screenshot.storage_disk');
         $chromePath = config('screenshot.chrome_path');
+        $chromeFound = $chromePath && file_exists($chromePath);
+
+        $chromeCheck = [
+            'name' => 'SCREENSHOT_CHROME_PATH',
+            'value' => $chromePath,
+            'status' => $chromeFound ? 'success' : 'error',
+            'message' => $chromeFound ? 'Chrome/Chromium found' : 'Browser not found at path',
+        ];
+
+        if (!$chromeFound) {
+            $chromeCheck['install_hints'] = $this->getChromeInstallHints();
+        }
 
         $checks = [
-            [
-                'name' => 'SCREENSHOT_CHROME_PATH',
-                'value' => $chromePath,
-                'status' => $chromePath && file_exists($chromePath) ? 'success' : 'error',
-                'message' => $chromePath && file_exists($chromePath)
-                    ? 'Chrome/Chromium found'
-                    : 'Browser not found at path',
-            ],
+            $chromeCheck,
             [
                 'name' => 'SCREENSHOT_STORAGE_DISK',
                 'value' => $storageDisk,
@@ -219,5 +224,233 @@ class InstallationCheckController extends Controller
         }
 
         return $tips;
+    }
+
+    private function getChromeInstallHints(): array
+    {
+        $os = $this->detectOperatingSystem();
+
+        return [
+            'os' => $os['name'],
+            'instructions' => $os['instructions'],
+            'dependencies' => $os['dependencies'] ?? null,
+            'env_path' => $os['env_path'],
+        ];
+    }
+
+    private function detectOperatingSystem(): array
+    {
+        $osFamily = PHP_OS_FAMILY;
+
+        // Check for specific Linux distributions
+        if ($osFamily === 'Linux') {
+            return $this->detectLinuxDistro();
+        }
+
+        if ($osFamily === 'Darwin') {
+            return [
+                'name' => 'macOS',
+                'instructions' => [
+                    [
+                        'title' => 'Install with Homebrew (recommended)',
+                        'commands' => [
+                            'brew install --cask google-chrome',
+                        ],
+                    ],
+                    [
+                        'title' => 'Or download directly',
+                        'commands' => [
+                            '# Download from https://www.google.com/chrome/',
+                        ],
+                    ],
+                ],
+                'env_path' => '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            ];
+        }
+
+        if ($osFamily === 'Windows') {
+            return [
+                'name' => 'Windows',
+                'instructions' => [
+                    [
+                        'title' => 'Install with Chocolatey',
+                        'commands' => [
+                            'choco install googlechrome',
+                        ],
+                    ],
+                    [
+                        'title' => 'Or download directly',
+                        'commands' => [
+                            '# Download from https://www.google.com/chrome/',
+                        ],
+                    ],
+                ],
+                'env_path' => 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+            ];
+        }
+
+        return [
+            'name' => 'Unknown OS',
+            'instructions' => [
+                [
+                    'title' => 'Install Chrome or Chromium',
+                    'commands' => [
+                        '# Download from https://www.google.com/chrome/',
+                    ],
+                ],
+            ],
+            'env_path' => '/usr/bin/google-chrome',
+        ];
+    }
+
+    private function detectLinuxDistro(): array
+    {
+        // Try to read /etc/os-release for distribution info
+        $osRelease = @file_get_contents('/etc/os-release');
+        $distroId = '';
+        $distroName = 'Linux';
+
+        if ($osRelease) {
+            if (preg_match('/^ID=(.*)$/m', $osRelease, $matches)) {
+                $distroId = strtolower(trim($matches[1], '"\''));
+            }
+            if (preg_match('/^PRETTY_NAME=(.*)$/m', $osRelease, $matches)) {
+                $distroName = trim($matches[1], '"\'');
+            }
+        }
+
+        // Debian-based (Ubuntu, Debian, Linux Mint, etc.)
+        if (in_array($distroId, ['ubuntu', 'debian', 'linuxmint', 'pop', 'elementary', 'zorin']) ||
+            file_exists('/etc/debian_version')) {
+            return [
+                'name' => $distroName,
+                'instructions' => [
+                    [
+                        'title' => 'Install Chromium (recommended)',
+                        'commands' => [
+                            'sudo apt update',
+                            'sudo apt install -y chromium-browser',
+                        ],
+                    ],
+                    [
+                        'title' => 'Or install Google Chrome',
+                        'commands' => [
+                            'wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb',
+                            'sudo dpkg -i google-chrome-stable_current_amd64.deb',
+                            'sudo apt --fix-broken install -y',
+                        ],
+                    ],
+                ],
+                'dependencies' => [
+                    'title' => 'Required dependencies for headless Chrome',
+                    'commands' => [
+                        'sudo apt install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \\',
+                        '  libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 \\',
+                        '  libpangocairo-1.0-0 libgtk-3-0',
+                    ],
+                ],
+                'env_path' => '/usr/bin/chromium-browser',
+            ];
+        }
+
+        // RHEL-based (CentOS, Fedora, Rocky, Alma, etc.)
+        if (in_array($distroId, ['centos', 'rhel', 'fedora', 'rocky', 'almalinux', 'amzn']) ||
+            file_exists('/etc/redhat-release')) {
+            $packageManager = $distroId === 'fedora' ? 'dnf' : 'yum';
+            return [
+                'name' => $distroName,
+                'instructions' => [
+                    [
+                        'title' => 'Install Chromium',
+                        'commands' => [
+                            "sudo {$packageManager} install -y chromium",
+                        ],
+                    ],
+                    [
+                        'title' => 'Or install Google Chrome',
+                        'commands' => [
+                            'sudo dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm',
+                        ],
+                    ],
+                ],
+                'dependencies' => [
+                    'title' => 'Required dependencies for headless Chrome',
+                    'commands' => [
+                        "sudo {$packageManager} install -y nss atk at-spi2-atk cups-libs \\",
+                        '  libXcomposite libXdamage libXrandr mesa-libgbm alsa-lib \\',
+                        '  pango gtk3',
+                    ],
+                ],
+                'env_path' => '/usr/bin/chromium-browser',
+            ];
+        }
+
+        // Alpine Linux
+        if ($distroId === 'alpine' || file_exists('/etc/alpine-release')) {
+            return [
+                'name' => $distroName,
+                'instructions' => [
+                    [
+                        'title' => 'Install Chromium',
+                        'commands' => [
+                            'apk add --no-cache chromium',
+                        ],
+                    ],
+                ],
+                'dependencies' => [
+                    'title' => 'Required dependencies for headless Chrome',
+                    'commands' => [
+                        'apk add --no-cache nss freetype harfbuzz ca-certificates ttf-freefont',
+                    ],
+                ],
+                'env_path' => '/usr/bin/chromium-browser',
+            ];
+        }
+
+        // Arch-based
+        if ($distroId === 'arch' || $distroId === 'manjaro' || file_exists('/etc/arch-release')) {
+            return [
+                'name' => $distroName,
+                'instructions' => [
+                    [
+                        'title' => 'Install Chromium',
+                        'commands' => [
+                            'sudo pacman -S chromium',
+                        ],
+                    ],
+                    [
+                        'title' => 'Or install Google Chrome from AUR',
+                        'commands' => [
+                            'yay -S google-chrome',
+                        ],
+                    ],
+                ],
+                'env_path' => '/usr/bin/chromium',
+            ];
+        }
+
+        // Generic Linux fallback
+        return [
+            'name' => $distroName,
+            'instructions' => [
+                [
+                    'title' => 'Install Chromium using your package manager',
+                    'commands' => [
+                        '# For Debian/Ubuntu: sudo apt install chromium-browser',
+                        '# For RHEL/CentOS: sudo yum install chromium',
+                        '# For Fedora: sudo dnf install chromium',
+                        '# For Arch: sudo pacman -S chromium',
+                    ],
+                ],
+            ],
+            'dependencies' => [
+                'title' => 'Required dependencies for headless Chrome',
+                'commands' => [
+                    '# Install X11 and graphics libraries required by Chrome',
+                    '# Package names vary by distribution',
+                ],
+            ],
+            'env_path' => '/usr/bin/chromium-browser',
+        ];
     }
 }
