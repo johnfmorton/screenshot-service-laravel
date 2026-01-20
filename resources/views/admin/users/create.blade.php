@@ -72,9 +72,52 @@
                     </label>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-checkbox">
+                        <input
+                            type="checkbox"
+                            name="create_api_key"
+                            id="create_api_key"
+                            value="1"
+                            {{ old('create_api_key') ? 'checked' : '' }}
+                            onchange="document.getElementById('new-api-key-fields').style.display = this.checked ? 'block' : 'none';"
+                        >
+                        <span>
+                            <strong>Create a new API key for this user</strong>
+                        </span>
+                    </label>
+                </div>
+
+                <div id="new-api-key-fields" style="display: {{ old('create_api_key') ? 'block' : 'none' }}; margin-left: 24px; padding-left: 16px; border-left: 2px solid var(--border-color);">
+                    <div class="form-group">
+                        <label class="form-label" for="new_api_key_name">API Key Name</label>
+                        <input
+                            type="text"
+                            id="new_api_key_name"
+                            name="new_api_key_name"
+                            class="form-input"
+                            value="{{ old('new_api_key_name') }}"
+                            placeholder="e.g., Production App, Development"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="new_api_key_rate_limit">Rate Limit (requests/hour)</label>
+                        <input
+                            type="number"
+                            id="new_api_key_rate_limit"
+                            name="new_api_key_rate_limit"
+                            class="form-input"
+                            value="{{ old('new_api_key_rate_limit') }}"
+                            placeholder="Leave empty for unlimited"
+                            min="1"
+                        >
+                    </div>
+                </div>
+
                 @if($apiKeys->isNotEmpty())
                     <div class="form-group">
-                        <label class="form-label">Assign API Keys</label>
+                        <label class="form-label">Assign Existing API Keys</label>
                         <div class="checkbox-list">
                             @foreach($apiKeys as $apiKey)
                                 <label>
@@ -91,7 +134,7 @@
                                 </label>
                             @endforeach
                         </div>
-                        <p class="form-hint">Select API keys this user should have access to.</p>
+                        <p class="form-hint">Select existing API keys this user should have access to.</p>
                     </div>
                 @endif
 

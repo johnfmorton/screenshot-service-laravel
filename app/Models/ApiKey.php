@@ -25,9 +25,7 @@ class ApiKey extends Model
         'rate_limit' => 'integer',
     ];
 
-    protected $hidden = [
-        'key',
-    ];
+    protected $hidden = [];
 
     public function screenshots(): HasMany
     {

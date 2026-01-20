@@ -33,7 +33,7 @@ class ApiKeyCreate extends Command
             ]
         );
         $this->newLine();
-        $this->warn('Make sure to copy the API key now. You won\'t be able to see it again!');
+        $this->info('You can view this key anytime in the admin panel or by running apikey:list.');
 
         return Command::SUCCESS;
     }

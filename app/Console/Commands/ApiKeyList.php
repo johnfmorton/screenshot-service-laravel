@@ -21,10 +21,11 @@ class ApiKeyList extends Command
         }
 
         $this->table(
-            ['ID', 'Name', 'Active', 'Rate Limit', 'Screenshots', 'Created'],
+            ['ID', 'Name', 'Key', 'Active', 'Rate Limit', 'Screenshots', 'Created'],
             $apiKeys->map(fn (ApiKey $key) => [
                 $key->id,
                 $key->name,
+                $key->key,
                 $key->is_active ? 'Yes' : 'No',
                 $key->rate_limit ?? 'None',
                 $key->screenshots()->count(),
