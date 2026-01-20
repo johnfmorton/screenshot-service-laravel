@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ApiKeyController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\InstallationCheckController;
 use App\Http\Controllers\Admin\ScreenshotController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -37,6 +38,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/users', [UserController::class, 'store'])->name('admin.users.store');
     Route::post('/users/{user}/toggle', [UserController::class, 'toggle'])->name('admin.users.toggle');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+
+    // Installation Check
+    Route::get('/installation-check', [InstallationCheckController::class, 'index'])
+        ->name('admin.installation-check');
+    Route::post('/installation-check/test', [InstallationCheckController::class, 'runTest'])
+        ->name('admin.installation-check.test');
+    Route::get('/installation-check/status/{screenshot}', [InstallationCheckController::class, 'checkStatus'])
+        ->name('admin.installation-check.status');
 
     // Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings');
