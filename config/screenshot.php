@@ -63,5 +63,5 @@ return [
     | will be stored. Do not include leading or trailing slashes.
     |
     */
-    'storage_path' => env('SCREENSHOT_STORAGE_PATH', 'screenshots'),
+    'storage_path' => trim(env('SCREENSHOT_STORAGE_PATH', 'screenshots'), '/'),
 ];
