@@ -32,9 +32,7 @@ class UserController extends Controller
     {
         $this->authorizeSuperAdmin();
 
-        $apiKeys = ApiKey::orderBy('name')->get();
-
-        return view('admin.users.create', compact('apiKeys'));
+        return view('admin.users.create');
     }
 
     public function store(Request $request): RedirectResponse
@@ -46,8 +44,6 @@ class UserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'is_super_admin' => ['boolean'],
-            'api_key_ids' => ['nullable', 'array'],
-            'api_key_ids.*' => ['exists:api_keys,id'],
             'create_api_key' => ['boolean'],
             'new_api_key_name' => ['required_if:create_api_key,1', 'nullable', 'string', 'max:255'],
             'new_api_key_rate_limit' => ['nullable', 'integer', 'min:1'],
@@ -60,17 +56,13 @@ class UserController extends Controller
             'is_super_admin' => $validated['is_super_admin'] ?? false,
         ]);
 
-        if (!empty($validated['api_key_ids'])) {
-            $user->apiKeys()->attach($validated['api_key_ids']);
-        }
-
         $newKey = null;
         if (!empty($validated['create_api_key']) && !empty($validated['new_api_key_name'])) {
             $apiKey = ApiKey::generate(
                 $validated['new_api_key_name'],
                 $validated['new_api_key_rate_limit'] ?? null
             );
-            $user->apiKeys()->attach($apiKey->id);
+            $apiKey->update(['user_id' => $user->id]);
             $newKey = $apiKey->key;
         }
 

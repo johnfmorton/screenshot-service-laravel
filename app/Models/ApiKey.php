@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -18,6 +18,7 @@ class ApiKey extends Model
         'key',
         'is_active',
         'rate_limit',
+        'user_id',
     ];
 
     protected $casts = [
@@ -32,9 +33,9 @@ class ApiKey extends Model
         return $this->hasMany(Screenshot::class);
     }
 
-    public function users(): BelongsToMany
+    public function user(): BelongsTo
     {
-        return $this->belongsToMany(User::class);
+        return $this->belongsTo(User::class);
     }
 
     public static function generate(string $name, ?int $rateLimit = null): self

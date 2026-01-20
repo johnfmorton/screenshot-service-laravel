@@ -25,9 +25,14 @@ class ApiKeyController extends Controller
         return view('admin.api-keys.index', compact('apiKeys'));
     }
 
-    public function create(): View
+    public function create(): View|RedirectResponse
     {
         $user = Auth::user();
+
+        // Sub users with existing key can't create another
+        if (!$user->isSuperAdmin() && $user->apiKeys()->exists()) {
+            return redirect()->route('admin.api-keys.index');
+        }
 
         // Only super admin can assign to users
         $users = $user->isSuperAdmin() ? User::orderBy('name')->get() : collect();
@@ -42,22 +47,32 @@ class ApiKeyController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'rate_limit' => ['nullable', 'integer', 'min:1'],
-            'user_ids' => ['nullable', 'array'],
-            'user_ids.*' => ['exists:users,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
         ]);
+
+        // Determine the owner of this API key
+        $ownerId = $user->isSuperAdmin() && !empty($validated['user_id'])
+            ? $validated['user_id']
+            : $user->id;
+
+        // Sub users can only have one API key
+        $owner = User::find($ownerId);
+        if (!$owner->isSuperAdmin() && $owner->apiKeys()->exists()) {
+            return redirect()->route('admin.api-keys.create')
+                ->withInput()
+                ->with('error', 'Sub users can only have one API key.');
+        }
+
+        // Only super admins can set rate limits
+        $rateLimit = $user->isSuperAdmin() ? ($validated['rate_limit'] ?? null) : null;
 
         $apiKey = ApiKey::generate(
             $validated['name'],
-            $validated['rate_limit'] ?? null
+            $rateLimit
         );
 
-        // Attach to users if super admin
-        if ($user->isSuperAdmin() && !empty($validated['user_ids'])) {
-            $apiKey->users()->attach($validated['user_ids']);
-        } else {
-            // Regular users: auto-attach to themselves
-            $apiKey->users()->attach($user->id);
-        }
+        // Set the owner
+        $apiKey->update(['user_id' => $ownerId]);
 
         return redirect()->route('admin.api-keys.index')
             ->with('success', 'API key created successfully.')
@@ -70,7 +85,7 @@ class ApiKeyController extends Controller
 
         // Check authorization
         if (!$user->isSuperAdmin()) {
-            if (!$user->apiKeys()->where('api_keys.id', $apiKey->id)->exists()) {
+            if ($apiKey->user_id !== $user->id) {
                 abort(403, 'Unauthorized');
             }
         }
@@ -87,9 +102,9 @@ class ApiKeyController extends Controller
     {
         $user = Auth::user();
 
-        // Only super admin can delete API keys
-        if (!$user->isSuperAdmin()) {
-            abort(403, 'Only super admins can delete API keys.');
+        // Super admins can delete any key; sub users can delete their own
+        if (!$user->isSuperAdmin() && $apiKey->user_id !== $user->id) {
+            abort(403, 'Unauthorized');
         }
 
         $apiKey->delete();

@@ -4,7 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -49,9 +49,17 @@ class User extends Authenticatable
         ];
     }
 
-    public function apiKeys(): BelongsToMany
+    public function apiKeys(): HasMany
     {
-        return $this->belongsToMany(ApiKey::class);
+        return $this->hasMany(ApiKey::class);
+    }
+
+    /**
+     * Get the single API key for sub users.
+     */
+    public function apiKey(): ?ApiKey
+    {
+        return $this->apiKeys()->first();
     }
 
     public function isSuperAdmin(): bool

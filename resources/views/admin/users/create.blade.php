@@ -115,29 +115,6 @@
                     </div>
                 </div>
 
-                @if($apiKeys->isNotEmpty())
-                    <div class="form-group">
-                        <label class="form-label">Assign Existing API Keys</label>
-                        <div class="checkbox-list">
-                            @foreach($apiKeys as $apiKey)
-                                <label>
-                                    <input
-                                        type="checkbox"
-                                        name="api_key_ids[]"
-                                        value="{{ $apiKey->id }}"
-                                        {{ in_array($apiKey->id, old('api_key_ids', [])) ? 'checked' : '' }}
-                                    >
-                                    {{ $apiKey->name }}
-                                    @if(!$apiKey->is_active)
-                                        <x-admin.badge type="danger">Inactive</x-admin.badge>
-                                    @endif
-                                </label>
-                            @endforeach
-                        </div>
-                        <p class="form-hint">Select existing API keys this user should have access to.</p>
-                    </div>
-                @endif
-
                 <div style="display: flex; gap: 12px; margin-top: 24px;">
                     <button type="submit" class="btn btn-primary">Create User</button>
                     <a href="{{ route('admin.users.index') }}" class="btn btn-secondary">Cancel</a>

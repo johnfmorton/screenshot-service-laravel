@@ -48,7 +48,7 @@ class DashboardController extends Controller
 
     private function getUserStats(User $user): array
     {
-        $apiKeyIds = $user->apiKeys()->pluck('api_keys.id');
+        $apiKeyIds = $user->apiKeys()->pluck('id');
 
         return [
             'total_screenshots' => Screenshot::whereIn('api_key_id', $apiKeyIds)->count(),

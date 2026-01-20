@@ -25,7 +25,7 @@ class ScreenshotController extends Controller
 
         // Scope to user's API keys if not super admin
         if (!$user->isSuperAdmin()) {
-            $apiKeyIds = $user->apiKeys()->pluck('api_keys.id');
+            $apiKeyIds = $user->apiKeys()->pluck('id');
             $query->whereIn('api_key_id', $apiKeyIds);
         }
 
@@ -63,7 +63,7 @@ class ScreenshotController extends Controller
 
         // Check authorization
         if (!$user->isSuperAdmin()) {
-            $userApiKeyIds = $user->apiKeys()->pluck('api_keys.id')->toArray();
+            $userApiKeyIds = $user->apiKeys()->pluck('id')->toArray();
             if (!in_array($screenshot->api_key_id, $userApiKeyIds)) {
                 abort(403, 'Unauthorized');
             }

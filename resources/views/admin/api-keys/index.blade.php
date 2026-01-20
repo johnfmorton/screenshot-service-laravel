@@ -12,15 +12,18 @@
         </div>
     @endif
 
-    <div style="margin-bottom: 20px;">
-        <a href="{{ route('admin.api-keys.create') }}" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            Create API Key
-        </a>
-    </div>
+    {{-- Create button: show for super admins, or sub users without a key --}}
+    @if(auth()->user()->isSuperAdmin() || $apiKeys->isEmpty())
+        <div style="margin-bottom: 20px;">
+            <a href="{{ route('admin.api-keys.create') }}" class="btn btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Create API Key
+            </a>
+        </div>
+    @endif
 
     <div class="card">
         <div class="table-container">
@@ -78,7 +81,8 @@
                                                 {{ $apiKey->is_active ? 'Deactivate' : 'Activate' }}
                                             </button>
                                         </form>
-                                        @if(auth()->user()->isSuperAdmin())
+                                        {{-- Delete button: show for super admins OR if it's the user's own key --}}
+                                        @if(auth()->user()->isSuperAdmin() || $apiKey->user_id === auth()->id())
                                             <form action="{{ route('admin.api-keys.destroy', $apiKey) }}" method="POST" style="display: inline;" onsubmit="return confirm('Are you sure? This will also delete all associated screenshots.');">
                                                 @csrf
                                                 @method('DELETE')

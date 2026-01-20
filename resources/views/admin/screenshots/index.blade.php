@@ -15,14 +15,16 @@
                 <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
                 <option value="failed" {{ request('status') === 'failed' ? 'selected' : '' }}>Failed</option>
             </select>
-            <select name="api_key" class="form-input">
-                <option value="">All API Keys</option>
-                @foreach($apiKeys as $apiKey)
-                    <option value="{{ $apiKey->id }}" {{ request('api_key') === $apiKey->id ? 'selected' : '' }}>
-                        {{ $apiKey->name }}
-                    </option>
-                @endforeach
-            </select>
+            @if(auth()->user()->isSuperAdmin())
+                <select name="api_key" class="form-input">
+                    <option value="">All API Keys</option>
+                    @foreach($apiKeys as $apiKey)
+                        <option value="{{ $apiKey->id }}" {{ request('api_key') === $apiKey->id ? 'selected' : '' }}>
+                            {{ $apiKey->name }}
+                        </option>
+                    @endforeach
+                </select>
+            @endif
             <button type="submit" class="btn btn-secondary">Filter</button>
             @if(request()->hasAny(['search', 'status', 'api_key']))
                 <a href="{{ route('admin.screenshots.index') }}" class="btn btn-secondary">Clear</a>
