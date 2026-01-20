@@ -19,6 +19,7 @@ class ScreenshotService
         int $thumbnailWidth,
         int $thumbnailHeight,
         string $waitUntil = 'networkidle0',
+        ?string $userAgent = null,
         bool $forceRefresh = false,
         ?string $webhookUrl = null,
         ?string $webhookSecret = null
@@ -49,6 +50,7 @@ class ScreenshotService
             'thumbnail_width' => $thumbnailWidth,
             'thumbnail_height' => $thumbnailHeight,
             'wait_until' => $waitUntil,
+            'user_agent' => $userAgent,
             'status' => ScreenshotStatus::Pending,
             'webhook_url' => $webhookUrl,
             'webhook_secret' => $webhookSecret,

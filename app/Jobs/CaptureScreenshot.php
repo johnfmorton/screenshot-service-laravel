@@ -35,13 +35,18 @@ class CaptureScreenshot implements ShouldQueue
             $fullPath = $tempDir . '/' . $this->screenshot->id . '-full.png';
             $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
 
-            Browsershot::url($this->screenshot->url)
+            $browsershot = Browsershot::url($this->screenshot->url)
                 ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
                 ->setOption('waitUntil', $this->screenshot->wait_until)
                 ->timeout(60)
                 ->setChromePath(config('screenshot.chrome_path'))
-                ->noSandbox()
-                ->save($fullPath);
+                ->noSandbox();
+
+            if ($this->screenshot->user_agent) {
+                $browsershot->userAgent($this->screenshot->user_agent);
+            }
+
+            $browsershot->save($fullPath);
 
             $manager = new ImageManager(new Driver());
 

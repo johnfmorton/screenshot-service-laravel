@@ -23,6 +23,7 @@ class Screenshot extends Model
         'thumbnail_width',
         'thumbnail_height',
         'wait_until',
+        'user_agent',
         'status',
         'full_image_path',
         'thumbnail_path',

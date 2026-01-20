@@ -101,6 +101,7 @@ Content-Type: application/json
 | `thumbnail_width` | integer | No | Thumbnail width in pixels (50-1920, default: 400) |
 | `thumbnail_height` | integer | No | Thumbnail height in pixels (50-1920, default: 300) |
 | `wait_until` | string | No | Page load strategy (see below, default: networkidle0) |
+| `user_agent` | string | No | Custom User-Agent string (max 512 chars, see below) |
 | `force_refresh` | boolean | No | Bypass cache and capture fresh screenshot (default: false) |
 | `webhook_url` | string | No | URL to receive completion webhook |
 | `webhook_secret` | string | No | Secret for webhook signature verification |
@@ -114,6 +115,14 @@ Content-Type: application/json
 | `domcontentloaded` | Wait for `DOMContentLoaded` event (fastest, use for simple pages) |
 
 For live news pages or sites with continuous updates, use `networkidle2` or `load` to avoid timeouts.
+
+**User Agent:**
+
+Some websites block headless browsers or serve different content based on the User-Agent. Use a custom User-Agent to appear as a regular browser:
+
+```
+Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+```
 
 **Example:**
 ```bash
