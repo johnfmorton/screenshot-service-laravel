@@ -75,6 +75,9 @@
                                 <td>{{ $apiKey->created_at->format('M j, Y') }}</td>
                                 <td>
                                     <div class="actions">
+                                        @if(auth()->user()->isSuperAdmin())
+                                            <a href="{{ route('admin.api-keys.edit', $apiKey) }}" class="btn btn-secondary btn-sm">Edit</a>
+                                        @endif
                                         <form action="{{ route('admin.api-keys.toggle', $apiKey) }}" method="POST" style="display: inline;">
                                             @csrf
                                             <button type="submit" class="btn btn-secondary btn-sm">

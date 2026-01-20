@@ -29,6 +29,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/api-keys', [ApiKeyController::class, 'index'])->name('admin.api-keys.index');
     Route::get('/api-keys/create', [ApiKeyController::class, 'create'])->name('admin.api-keys.create');
     Route::post('/api-keys', [ApiKeyController::class, 'store'])->name('admin.api-keys.store');
+    Route::get('/api-keys/{apiKey}/edit', [ApiKeyController::class, 'edit'])->name('admin.api-keys.edit');
+    Route::put('/api-keys/{apiKey}', [ApiKeyController::class, 'update'])->name('admin.api-keys.update');
     Route::post('/api-keys/{apiKey}/toggle', [ApiKeyController::class, 'toggle'])->name('admin.api-keys.toggle');
     Route::delete('/api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('admin.api-keys.destroy');
 

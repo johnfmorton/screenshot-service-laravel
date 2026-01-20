@@ -79,6 +79,39 @@ class ApiKeyController extends Controller
             ->with('new_key', $apiKey->key);
     }
 
+    public function edit(ApiKey $apiKey): View|RedirectResponse
+    {
+        $user = Auth::user();
+
+        // Only super admins can edit rate limits
+        if (!$user->isSuperAdmin()) {
+            abort(403, 'Only super admins can edit rate limits.');
+        }
+
+        return view('admin.api-keys.edit', compact('apiKey'));
+    }
+
+    public function update(Request $request, ApiKey $apiKey): RedirectResponse
+    {
+        $user = Auth::user();
+
+        // Only super admins can update rate limits
+        if (!$user->isSuperAdmin()) {
+            abort(403, 'Only super admins can edit rate limits.');
+        }
+
+        $validated = $request->validate([
+            'rate_limit' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $apiKey->update([
+            'rate_limit' => $validated['rate_limit'] ?? null,
+        ]);
+
+        return redirect()->route('admin.api-keys.index')
+            ->with('success', 'Rate limit updated successfully.');
+    }
+
     public function toggle(ApiKey $apiKey): RedirectResponse
     {
         $user = Auth::user();

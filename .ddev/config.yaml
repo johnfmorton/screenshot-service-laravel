@@ -13,6 +13,13 @@ use_dns_when_possible: true
 composer_version: "2"
 web_environment: []
 corepack_enable: false
+web_extra_daemons:
+    - name: "queue-worker"
+      command: "php artisan queue:work --tries=1"
+      directory: /var/www/html
+    - name: "schedule-work"
+      command: "php artisan schedule:work"
+      directory: /var/www/html
 
 # Key features of DDEV's config.yaml:
 
