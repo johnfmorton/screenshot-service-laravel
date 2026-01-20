@@ -27,11 +27,18 @@ ddev artisan key:generate
 # Run migrations
 ddev artisan migrate
 
+# Create initial admin user (set credentials in .env first)
+# ADMIN_EMAIL=admin@example.com
+# ADMIN_PASSWORD=your-secure-password
+ddev artisan db:seed --class=AdminSeeder
+
 # Create an API key (see CLI Commands below)
 ddev artisan apikey:create "my-app"
 ```
 
 The service will be available at `https://screenshot-service.ddev.site`
+
+The admin panel is accessible at `https://screenshot-service.ddev.site/admin`
 
 ## CLI Commands
 
