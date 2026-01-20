@@ -99,7 +99,8 @@ class ScreenshotCleanup extends Command
         $disk = config('screenshot.storage_disk');
         $storage = Storage::disk($disk);
 
-        $allFiles = $storage->allFiles('screenshots');
+        $storagePath = config('screenshot.storage_path', 'screenshots');
+        $allFiles = $storage->allFiles($storagePath);
 
         if (empty($allFiles)) {
             $this->info('No files found in storage.');

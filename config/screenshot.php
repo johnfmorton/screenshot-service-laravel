@@ -53,4 +53,15 @@ return [
     |
     */
     'storage_disk' => env('SCREENSHOT_STORAGE_DISK', 's3'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Storage Path
+    |--------------------------------------------------------------------------
+    |
+    | The subfolder/prefix path within the storage disk where screenshots
+    | will be stored. Do not include leading or trailing slashes.
+    |
+    */
+    'storage_path' => env('SCREENSHOT_STORAGE_PATH', 'screenshots'),
 ];
