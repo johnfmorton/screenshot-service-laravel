@@ -182,3 +182,39 @@ Screenshot capture runs asynchronously. Start workers with:
 ```bash
 ddev artisan queue:work --tries=3
 ```
+
+## Production Server Setup
+
+### Installing Chrome on Ubuntu (Forge/Production)
+
+On Ubuntu servers, avoid using the Snap version of Chromium (`/usr/bin/chromium-browser`) as it has sandboxing restrictions that conflict with running from Supervisor/systemd services. Instead, install Google Chrome from the official repository:
+
+```bash
+# Add Google's signing key
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+
+# Add the Chrome repository
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+
+# Install Chrome
+sudo apt update
+sudo apt install -y google-chrome-stable
+```
+
+Then set the Chrome path in your `.env`:
+
+```
+SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome-stable
+```
+
+After making the change, restart your queue workers:
+
+```bash
+sudo supervisorctl restart all
+```
+
+### Common Chrome/Chromium Errors
+
+**Snap confinement error**: If you see `/system.slice/supervisor.service is not a snap cgroup`, this means Chromium was installed via Snap. Install Google Chrome as shown above instead.
+
+**Missing xdg-settings**: The error `xdg-settings: not found` occurs because Chromium checks for desktop utilities. This is harmless in headless mode but often accompanies the snap confinement error.

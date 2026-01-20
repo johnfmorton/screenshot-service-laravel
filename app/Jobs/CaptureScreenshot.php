@@ -37,7 +37,7 @@ class CaptureScreenshot implements ShouldQueue
 
             Browsershot::url($this->screenshot->url)
                 ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
-                ->waitUntilNetworkIdle()
+                ->setOption('waitUntil', $this->screenshot->wait_until)
                 ->timeout(60)
                 ->setChromePath(config('screenshot.chrome_path'))
                 ->noSandbox()

@@ -100,9 +100,20 @@ Content-Type: application/json
 | `max_width` | integer | No | Maximum width for the full-size image (100-3840) |
 | `thumbnail_width` | integer | No | Thumbnail width in pixels (50-1920, default: 400) |
 | `thumbnail_height` | integer | No | Thumbnail height in pixels (50-1920, default: 300) |
+| `wait_until` | string | No | Page load strategy (see below, default: networkidle0) |
 | `force_refresh` | boolean | No | Bypass cache and capture fresh screenshot (default: false) |
 | `webhook_url` | string | No | URL to receive completion webhook |
 | `webhook_secret` | string | No | Secret for webhook signature verification |
+
+**Wait Until Options:**
+| Value | Description |
+|-------|-------------|
+| `networkidle0` | Wait until no network connections for 500ms (default, best for static pages) |
+| `networkidle2` | Wait until ≤2 network connections for 500ms (better for pages with ongoing polling) |
+| `load` | Wait for the `load` event (faster, may miss lazy-loaded content) |
+| `domcontentloaded` | Wait for `DOMContentLoaded` event (fastest, use for simple pages) |
+
+For live news pages or sites with continuous updates, use `networkidle2` or `load` to avoid timeouts.
 
 **Example:**
 ```bash
@@ -172,44 +183,48 @@ Key environment variables:
 
 ## Production Deployment
 
-### Chrome/Chromium Installation
+### Chrome Installation (Ubuntu/Forge)
 
 The screenshot service requires Chrome or Chromium to be installed on your production server. The Installation Check page in the admin panel (`/admin/installation-check`) will show an error if the browser is not found.
 
-**Ubuntu/Debian:**
+**Important:** On Ubuntu 22.04+, avoid using `apt install chromium-browser` as it installs the Snap version, which has sandboxing restrictions that prevent it from running under Supervisor/systemd services.
+
+**Install Google Chrome (recommended):**
 
 ```bash
-# Option 1: Install Chromium (recommended - lighter weight)
+# Add Google's signing key
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+
+# Add the Chrome repository
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+
+# Install Chrome and dependencies
 sudo apt update
-sudo apt install -y chromium-browser
-
-# Option 2: Install Google Chrome
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg -i google-chrome-stable_current_amd64.deb
-sudo apt --fix-broken install
+sudo apt install -y google-chrome-stable
 ```
 
-**Required dependencies for headless Chrome:**
+**Update your `.env`:**
 
 ```bash
-sudo apt install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
-  libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 \
-  libpangocairo-1.0-0 libgtk-3-0
+SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome-stable
 ```
 
-**Find the installed browser path:**
+**Restart queue workers after configuration:**
 
 ```bash
-which google-chrome        # Google Chrome
-which chromium-browser     # Chromium on Ubuntu
-which chromium             # Chromium on some distros
+sudo supervisorctl restart all
 ```
 
-**Update your `.env` with the correct path:**
+### Troubleshooting Chrome Errors
+
+**Snap confinement error:** If you see `is not a snap cgroup` in the error output, Chromium was installed via Snap. Uninstall it and install Google Chrome instead:
 
 ```bash
-SCREENSHOT_CHROME_PATH=/usr/bin/chromium-browser   # Adjust based on your installation
+sudo snap remove chromium
+# Then follow the Google Chrome installation above
 ```
+
+**Missing xdg-settings:** The error `xdg-settings: not found` typically accompanies the snap error. It resolves after switching to Google Chrome.
 
 ## License
 

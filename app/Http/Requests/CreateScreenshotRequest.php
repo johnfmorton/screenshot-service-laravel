@@ -20,6 +20,7 @@ class CreateScreenshotRequest extends FormRequest
             'max_width' => ['sometimes', 'nullable', 'integer', 'min:100', 'max:3840'],
             'thumbnail_width' => ['sometimes', 'integer', 'min:50', 'max:1920'],
             'thumbnail_height' => ['sometimes', 'integer', 'min:50', 'max:1920'],
+            'wait_until' => ['sometimes', 'string', 'in:networkidle0,networkidle2,load,domcontentloaded'],
             'force_refresh' => ['sometimes', 'boolean'],
             'webhook_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'webhook_secret' => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -64,5 +65,10 @@ class CreateScreenshotRequest extends FormRequest
     public function getWebhookSecret(): ?string
     {
         return $this->input('webhook_secret');
+    }
+
+    public function getWaitUntil(): string
+    {
+        return $this->input('wait_until', 'networkidle0');
     }
 }
