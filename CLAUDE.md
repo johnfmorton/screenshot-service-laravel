@@ -107,7 +107,6 @@ SCREENSHOT_TTL_HOURS=24
 SCREENSHOT_DEFAULT_VIEWPORT_WIDTH=1280
 SCREENSHOT_DEFAULT_VIEWPORT_HEIGHT=800
 SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome
-SCREENSHOT_STORAGE_PATH=screenshots
 ```
 
 Screenshot settings are in `config/screenshot.php`.
@@ -171,6 +170,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_DEFAULT_REGION=us-east-1
 AWS_BUCKET=myapp-screenshots
 AWS_URL=https://d1234abcd.cloudfront.net
+AWS_SCREENSHOT_STORAGE_PATH=screenshots
 ```
 
 The `AWS_URL` setting makes screenshot URLs use your CloudFront distribution instead of direct S3 URLs.

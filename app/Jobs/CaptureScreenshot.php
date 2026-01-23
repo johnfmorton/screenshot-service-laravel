@@ -62,11 +62,13 @@ class CaptureScreenshot implements ShouldQueue
             $thumbnail->cover($this->screenshot->thumbnail_width, $this->screenshot->thumbnail_height);
             $thumbnail->save($thumbnailPath);
 
-            $storagePath = config('screenshot.storage_path', 'screenshots');
+            $disk = config('screenshot.storage_disk');
+            $storagePath = $disk === 's3'
+                ? config('screenshot.storage_path', 'screenshots')
+                : 'screenshots';
             $s3FullPath = $storagePath . '/' . $this->screenshot->id . '-full.png';
             $s3ThumbnailPath = $storagePath . '/' . $this->screenshot->id . '-thumb.png';
 
-            $disk = config('screenshot.storage_disk');
             Storage::disk($disk)->put($s3FullPath, file_get_contents($fullPath), 'public');
             Storage::disk($disk)->put($s3ThumbnailPath, file_get_contents($thumbnailPath), 'public');
 

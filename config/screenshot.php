@@ -56,12 +56,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Storage Path
+    | AWS Storage Path (S3 only)
     |--------------------------------------------------------------------------
     |
-    | The subfolder/prefix path within the storage disk where screenshots
-    | will be stored. Do not include leading or trailing slashes.
+    | The prefix path within the S3 bucket where screenshots will be stored.
+    | This setting only applies when using the 's3' storage disk.
+    | For the 'public' disk, screenshots are always stored in 'screenshots/'.
     |
     */
-    'storage_path' => trim(env('SCREENSHOT_STORAGE_PATH', 'screenshots'), '/'),
+    'storage_path' => trim(env('AWS_SCREENSHOT_STORAGE_PATH', 'screenshots'), '/'),
 ];
