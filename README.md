@@ -100,7 +100,7 @@ Content-Type: application/json
 | `max_width` | integer | No | Maximum width for the full-size image (100-3840) |
 | `thumbnail_width` | integer | No | Thumbnail width in pixels (50-1920, default: 400) |
 | `thumbnail_height` | integer | No | Thumbnail height in pixels (50-1920, default: 300) |
-| `wait_until` | string | No | Page load strategy (see below, default: networkidle0) |
+| `wait_until` | string | No | Page load strategy (see below, default: networkidle2) |
 | `user_agent` | string | No | Custom User-Agent string (max 512 chars, see below) |
 | `force_refresh` | boolean | No | Bypass cache and capture fresh screenshot (default: false) |
 | `webhook_url` | string | No | URL to receive completion webhook |
@@ -109,12 +109,12 @@ Content-Type: application/json
 **Wait Until Options:**
 | Value | Description |
 |-------|-------------|
-| `networkidle0` | Wait until no network connections for 500ms (default, best for static pages) |
-| `networkidle2` | Wait until ≤2 network connections for 500ms (better for pages with ongoing polling) |
+| `networkidle2` | Wait until ≤2 network connections for 500ms (default, recommended for most sites) |
+| `networkidle0` | Wait until no network connections for 500ms (stricter, may timeout on ad-heavy sites) |
 | `load` | Wait for the `load` event (faster, may miss lazy-loaded content) |
 | `domcontentloaded` | Wait for `DOMContentLoaded` event (fastest, use for simple pages) |
 
-For live news pages or sites with continuous updates, use `networkidle2` or `load` to avoid timeouts.
+For static pages without ads or tracking, `networkidle0` provides the most complete screenshots. For modern news/media sites, the default `networkidle2` prevents timeouts from continuous ad and tracker activity.
 
 **User Agent:**
 
@@ -187,6 +187,7 @@ Key environment variables:
 | `SCREENSHOT_DEFAULT_VIEWPORT_HEIGHT` | 800 | Default viewport height |
 | `SCREENSHOT_DEFAULT_THUMBNAIL_WIDTH` | 400 | Default thumbnail width |
 | `SCREENSHOT_DEFAULT_THUMBNAIL_HEIGHT` | 300 | Default thumbnail height |
+| `SCREENSHOT_DEFAULT_WAIT_UNTIL` | networkidle2 | Page load strategy (networkidle0, networkidle2, load, domcontentloaded) |
 | `SCREENSHOT_CHROME_PATH` | /usr/bin/chromium | Path to Chrome executable |
 | `SCREENSHOT_STORAGE_DISK` | s3 | Storage disk (s3 or public) |
 

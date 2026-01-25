@@ -70,7 +70,7 @@ class CreateScreenshotRequest extends FormRequest
 
     public function getWaitUntil(): string
     {
-        return $this->input('wait_until', 'networkidle0');
+        return $this->input('wait_until', config('screenshot.default_wait_until'));
     }
 
     public function getUserAgent(): ?string

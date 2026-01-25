@@ -35,6 +35,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Wait Until Strategy
+    |--------------------------------------------------------------------------
+    |
+    | The default page load strategy for screenshots.
+    | Options: networkidle0, networkidle2, load, domcontentloaded
+    |
+    | - networkidle0: Wait until 0 network connections for 500ms (strictest)
+    | - networkidle2: Wait until ≤2 network connections for 500ms (recommended)
+    | - load: Wait for the load event
+    | - domcontentloaded: Wait for DOMContentLoaded event (fastest)
+    |
+    */
+    'default_wait_until' => env('SCREENSHOT_DEFAULT_WAIT_UNTIL', 'networkidle2'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Chrome Path
     |--------------------------------------------------------------------------
     |
