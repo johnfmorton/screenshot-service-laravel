@@ -72,6 +72,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Chrome Memory Optimization
+    |--------------------------------------------------------------------------
+    |
+    | Enable Chrome flags that reduce memory usage. Recommended for production
+    | servers, especially VPS/containers where /dev/shm may be limited.
+    |
+    | Flags enabled: --disable-dev-shm-usage, --disable-gpu, --single-process
+    |
+    */
+    'chrome_memory_optimized' => env('SCREENSHOT_CHROME_MEMORY_OPTIMIZED', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Disk
     |--------------------------------------------------------------------------
     |

@@ -109,6 +109,7 @@ SCREENSHOT_DEFAULT_VIEWPORT_HEIGHT=800
 SCREENSHOT_DEFAULT_WAIT_UNTIL=networkidle2
 SCREENSHOT_DEFAULT_TIMEOUT=120
 SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome
+SCREENSHOT_CHROME_MEMORY_OPTIMIZED=true
 ```
 
 Screenshot settings are in `config/screenshot.php`.
@@ -220,3 +221,19 @@ sudo supervisorctl restart all
 **Snap confinement error**: If you see `/system.slice/supervisor.service is not a snap cgroup`, this means Chromium was installed via Snap. Install Google Chrome as shown above instead.
 
 **Missing xdg-settings**: The error `xdg-settings: not found` occurs because Chromium checks for desktop utilities. This is harmless in headless mode but often accompanies the snap confinement error.
+
+### Chrome Memory Optimization
+
+By default, memory optimization flags are enabled (`SCREENSHOT_CHROME_MEMORY_OPTIMIZED=true`). This adds the following Chrome flags:
+
+- `--disable-dev-shm-usage`: Uses `/tmp` instead of `/dev/shm` for shared memory. Critical on VPS/containers where `/dev/shm` is often limited to 64MB.
+- `--disable-gpu`: Disables GPU hardware acceleration.
+- `--single-process`: Runs Chrome in single-process mode to reduce memory footprint.
+
+These flags help prevent Chrome from crashing or hanging on memory-intensive pages (WebGL, Three.js, heavy SPAs). If you have a server with ample resources and need maximum rendering fidelity, you can disable this:
+
+```
+SCREENSHOT_CHROME_MEMORY_OPTIMIZED=false
+```
+
+**Timeout on heavy pages**: If screenshots timeout even with memory optimization, try using `wait_until: "load"` instead of `networkidle2` in your API requests. WebGL sites often maintain continuous network activity and never reach "network idle".

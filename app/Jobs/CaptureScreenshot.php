@@ -54,6 +54,14 @@ class CaptureScreenshot implements ShouldQueue
                 ->setChromePath(config('screenshot.chrome_path'))
                 ->noSandbox();
 
+            if (config('screenshot.chrome_memory_optimized')) {
+                $browsershot->addChromiumArguments([
+                    'disable-dev-shm-usage',
+                    'disable-gpu',
+                    'single-process',
+                ]);
+            }
+
             if ($this->screenshot->user_agent) {
                 $browsershot->userAgent($this->screenshot->user_agent);
             }
