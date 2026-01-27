@@ -51,6 +51,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default Timeout
+    |--------------------------------------------------------------------------
+    |
+    | The default timeout in seconds for page loading when capturing screenshots.
+    | Heavy pages with lots of assets may require longer timeouts.
+    |
+    */
+    'default_timeout' => (int) env('SCREENSHOT_DEFAULT_TIMEOUT', 120),
+
+    /*
+    |--------------------------------------------------------------------------
     | Chrome Path
     |--------------------------------------------------------------------------
     |

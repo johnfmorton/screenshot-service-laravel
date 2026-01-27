@@ -28,6 +28,7 @@ class ScreenshotController extends Controller
             thumbnailWidth: $request->getThumbnailWidth(),
             thumbnailHeight: $request->getThumbnailHeight(),
             waitUntil: $request->getWaitUntil(),
+            timeout: $request->getTimeout(),
             userAgent: $request->getUserAgent(),
             forceRefresh: $request->getForceRefresh(),
             webhookUrl: $request->getWebhookUrl(),

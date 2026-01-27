@@ -36,6 +36,9 @@ Creates a new screenshot request. Processing happens asynchronously.
 | `max_width` | integer | No | 100-3840 | null | Max width to resize full image |
 | `thumbnail_width` | integer | No | 50-1920 | 400 | Thumbnail width |
 | `thumbnail_height` | integer | No | 50-1920 | 300 | Thumbnail height |
+| `wait_until` | string | No | networkidle0, networkidle2, load, domcontentloaded | networkidle2 | Page load strategy |
+| `timeout` | integer | No | 10-300 | 120 | Page load timeout in seconds |
+| `user_agent` | string | No | Max 512 chars | null | Custom browser user agent |
 | `force_refresh` | boolean | No | - | false | Bypass cache, capture fresh |
 | `webhook_url` | string | No | Valid URL, max 2048 chars | null | URL for completion callback |
 | `webhook_secret` | string | No | Max 255 chars | null | HMAC secret for webhook signature |
@@ -49,6 +52,17 @@ Creates a new screenshot request. Processing happens asynchronously.
   "viewport_height": 1080,
   "thumbnail_width": 300,
   "thumbnail_height": 200,
+  "webhook_url": "https://myapp.com/webhook/screenshot"
+}
+```
+
+#### Example Request (Heavy Page)
+
+```json
+{
+  "url": "https://threejs-journey.com",
+  "wait_until": "load",
+  "timeout": 180,
   "webhook_url": "https://myapp.com/webhook/screenshot"
 }
 ```
@@ -244,3 +258,16 @@ Webhooks retry up to 3 times with backoff: 5s, 30s, 120s.
 - Default cache TTL: 24 hours
 - Use `force_refresh: true` to bypass cache and capture a fresh screenshot
 - The `expires_at` field indicates when the cached screenshot will be purged
+
+---
+
+## Page Load Strategies (`wait_until`)
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `networkidle0` | Wait until 0 network connections for 500ms | Static pages with finite resources |
+| `networkidle2` | Wait until ≤2 network connections for 500ms | Most websites (default) |
+| `load` | Wait for the `load` event | Heavy pages, SPAs, WebGL sites |
+| `domcontentloaded` | Wait for `DOMContentLoaded` event | Fast captures, above-fold content only |
+
+**Tip:** For heavy pages (WebGL, Three.js, complex SPAs) that timeout with `networkidle2`, use `wait_until: "load"` with an increased `timeout`.

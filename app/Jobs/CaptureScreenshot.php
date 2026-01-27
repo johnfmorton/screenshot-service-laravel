@@ -19,12 +19,22 @@ class CaptureScreenshot implements ShouldQueue
     use Queueable;
 
     public int $tries = 3;
-    public int $timeout = 120;
     public array $backoff = [10, 30, 60];
 
     public function __construct(
         public Screenshot $screenshot
     ) {}
+
+    /**
+     * Get the job timeout in seconds.
+     * Allow extra time beyond the Browsershot timeout for image processing and upload.
+     */
+    public function retryUntil(): \DateTime
+    {
+        $browsershotTimeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
+
+        return now()->addSeconds($browsershotTimeout + 60);
+    }
 
     public function handle(): void
     {
@@ -35,10 +45,12 @@ class CaptureScreenshot implements ShouldQueue
             $fullPath = $tempDir . '/' . $this->screenshot->id . '-full.png';
             $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
 
+            $timeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
+
             $browsershot = Browsershot::url($this->screenshot->url)
                 ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
                 ->setOption('waitUntil', $this->screenshot->wait_until)
-                ->timeout(60)
+                ->timeout($timeout)
                 ->setChromePath(config('screenshot.chrome_path'))
                 ->noSandbox();
 
