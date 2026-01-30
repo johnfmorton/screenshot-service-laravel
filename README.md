@@ -27,9 +27,7 @@ ddev artisan key:generate
 # Run migrations
 ddev artisan migrate
 
-# Create initial admin user (set credentials in .env first)
-# ADMIN_EMAIL=admin@example.com
-# ADMIN_PASSWORD=your-secure-password
+# Create initial admin user (see CLI Commands below)
 ddev artisan db:seed --class=AdminSeeder
 
 # Create an API key (see CLI Commands below)
@@ -41,6 +39,34 @@ The service will be available at `https://screenshot-service.ddev.site`
 The admin panel is accessible at `https://screenshot-service.ddev.site/admin`
 
 ## CLI Commands
+
+### Create Admin User
+
+```bash
+ddev artisan db:seed --class=AdminSeeder
+```
+
+Creates or updates the super admin user for accessing the admin panel at `/admin`.
+
+**Required Environment Variables:**
+
+Add these to your `.env` file before running the seeder:
+
+```
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=your-secure-password
+```
+
+**Behavior:**
+- If the user doesn't exist, creates a new super admin account
+- If the user already exists, updates their password and ensures super admin privileges
+- Running the seeder again with a new password will update the existing admin's credentials
+
+**Example:**
+```bash
+# Set credentials in .env first, then run:
+ddev artisan db:seed --class=AdminSeeder
+```
 
 ### Create an API Key
 
