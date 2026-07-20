@@ -62,8 +62,19 @@ class CaptureScreenshot implements ShouldQueue
                 ]);
             }
 
-            if ($this->screenshot->user_agent) {
-                $browsershot->userAgent($this->screenshot->user_agent);
+            if (config('screenshot.force_http1')) {
+                // Force HTTP/1.1. Some sites/CDNs trigger
+                // net::ERR_HTTP2_PROTOCOL_ERROR under headless Chrome's HTTP/2
+                // stack, which fails the capture outright.
+                $browsershot->addChromiumArguments(['disable-http2']);
+            }
+
+            // Prefer the per-request user agent, otherwise fall back to the
+            // configured default (a real desktop UA renders pages as a visitor
+            // would and avoids sites that block the "HeadlessChrome" UA).
+            $userAgent = $this->screenshot->user_agent ?: config('screenshot.default_user_agent');
+            if ($userAgent) {
+                $browsershot->userAgent($userAgent);
             }
 
             $browsershot->save($fullPath);

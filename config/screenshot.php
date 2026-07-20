@@ -85,6 +85,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Force HTTP/1.1
+    |--------------------------------------------------------------------------
+    |
+    | Adds the --disable-http2 Chromium flag. Some sites and CDNs cause
+    | headless Chrome to fail with net::ERR_HTTP2_PROTOCOL_ERROR, aborting
+    | the capture entirely. Forcing HTTP/1.1 is slightly slower but far more
+    | reliable. Leave enabled unless you have a specific reason not to.
+    |
+    */
+    'force_http1' => (bool) env('SCREENSHOT_FORCE_HTTP1', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default User Agent
+    |--------------------------------------------------------------------------
+    |
+    | Sent when a screenshot request doesn't specify its own user agent. A
+    | real desktop Chrome UA renders pages the way a visitor would see them
+    | and avoids the many sites that block the default "HeadlessChrome" UA.
+    | Set to an empty string to let Chrome use its own default.
+    |
+    */
+    'default_user_agent' => env(
+        'SCREENSHOT_DEFAULT_USER_AGENT',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
+    ),
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Disk
     |--------------------------------------------------------------------------
     |
