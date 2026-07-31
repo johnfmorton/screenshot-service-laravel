@@ -179,8 +179,12 @@ GET /api/screenshots/{id}
   "id": "9e5b4a3c-...",
   "status": "completed",
   "url": "https://example.com",
-  "image_url": "https://s3.../full.png",
-  "thumbnail_url": "https://s3.../thumb.png"
+  "images": {
+    "full": "https://s3.../full.png",
+    "thumbnail": "https://s3.../thumb.png"
+  },
+  "captured_at": "2026-07-31T12:00:00+00:00",
+  "expires_at": "2026-08-01T12:00:00+00:00"
 }
 ```
 

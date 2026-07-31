@@ -41,7 +41,7 @@ class ApiDocumentationController extends Controller
                         'status' => '202 Accepted (processing) or 200 OK (cached)',
                         'body' => [
                             'id' => 'Screenshot UUID',
-                            'status' => 'pending | processing | completed | failed',
+                            'status' => 'pending | processing | completed | failed | blocked',
                             'poll_url' => 'URL to check screenshot status',
                         ],
                     ],
@@ -57,12 +57,12 @@ class ApiDocumentationController extends Controller
                         'status' => '200 OK',
                         'body' => [
                             'id' => 'Screenshot UUID',
-                            'status' => 'pending | processing | completed | failed',
+                            'status' => 'pending | processing | completed | failed | blocked',
                             'url' => 'Original URL that was captured',
                             'images' => '(when completed) { full: "...", thumbnail: "..." }',
                             'captured_at' => '(when completed) ISO 8601 timestamp',
                             'expires_at' => '(when completed) ISO 8601 timestamp',
-                            'error' => '(when failed) Error message',
+                            'error' => '(when failed or blocked) Error message',
                         ],
                     ],
                 ],
