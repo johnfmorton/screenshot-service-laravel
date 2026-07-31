@@ -8,4 +8,5 @@ enum ScreenshotStatus: string
     case Processing = 'processing';
     case Completed = 'completed';
     case Failed = 'failed';
+    case Blocked = 'blocked';
 }

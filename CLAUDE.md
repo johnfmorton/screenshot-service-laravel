@@ -110,6 +110,8 @@ SCREENSHOT_DEFAULT_WAIT_UNTIL=networkidle2
 SCREENSHOT_DEFAULT_TIMEOUT=120
 SCREENSHOT_CHROME_PATH=/usr/bin/google-chrome
 SCREENSHOT_CHROME_MEMORY_OPTIMIZED=true
+SCREENSHOT_DETECT_BLOCKS=true
+SCREENSHOT_CHALLENGE_WAIT_MS=15000
 ```
 
 Screenshot settings are in `config/screenshot.php`.
@@ -186,6 +188,11 @@ Screenshot capture runs asynchronously. Start workers with:
 ddev artisan queue:work --tries=3
 ```
 
+`--tries` is only a fallback for jobs that don't set their own limit, and both
+of this project's jobs do. `SendWebhook` sets `$tries` directly; `CaptureScreenshot`
+defines `retryUntil()`, which makes Laravel skip the attempt-count check
+altogether. Change retry behaviour on the job, not on the worker command.
+
 ## Production Server Setup
 
 ### Installing Chrome on Ubuntu (Forge/Production)
@@ -228,12 +235,38 @@ By default, memory optimization flags are enabled (`SCREENSHOT_CHROME_MEMORY_OPT
 
 - `--disable-dev-shm-usage`: Uses `/tmp` instead of `/dev/shm` for shared memory. Critical on VPS/containers where `/dev/shm` is often limited to 64MB.
 - `--disable-gpu`: Disables GPU hardware acceleration.
-- `--single-process`: Runs Chrome in single-process mode to reduce memory footprint.
 
 These flags help prevent Chrome from crashing or hanging on memory-intensive pages (WebGL, Three.js, heavy SPAs). If you have a server with ample resources and need maximum rendering fidelity, you can disable this:
 
 ```
 SCREENSHOT_CHROME_MEMORY_OPTIMIZED=false
 ```
+
+`--single-process` used to be part of this bundle and is now opt-in via
+`SCREENSHOT_CHROME_SINGLE_PROCESS=true`. Almost no real browser runs that way,
+so it is a strong bot-detection signal, and it crashes on heavy pages. Reach for
+it only when `--disable-dev-shm-usage` alone isn't enough.
+
+## Bot Protection
+
+`CaptureScreenshot` recognises WAF blocks and challenge interstitials and records
+them as `ScreenshotStatus::Blocked` instead of storing the block page as a real
+screenshot. Blocked captures are never uploaded and never satisfy a cache lookup.
+
+Detection lives in `app/Services/ChallengeDetector.php` and works at two layers:
+
+- **HTTP status** — Browsershot's `preventUnsuccessfulResponse()` surfaces 4xx/5xx
+  as `UnsuccessfulResponse`. Codes in `screenshot.blocking_status_codes` become
+  `blocked`; everything else (404, 500, 503) stays an ordinary `failed`.
+- **Page content** — interstitials that return a 200, matched by the JS predicate
+  from `ChallengeDetector::waitPredicate()`. It runs via `waitForFunction`, so a
+  challenge that clears within `SCREENSHOT_CHALLENGE_WAIT_MS` is waited out and
+  captured properly; one that doesn't times out and is reported as blocked.
+
+The predicate **must** be an immediately-invoked expression. Puppeteer evaluates
+a string predicate as an expression rather than calling it, so a bare
+`() => {...}` evaluates to a truthy function object and silently disables
+detection. `tests/Unit/ChallengeDetectorTest.php` runs the predicate through Node
+as a bare expression specifically to keep that regression visible.
 
 **Timeout on heavy pages**: If screenshots timeout even with memory optimization, try using `wait_until: "load"` instead of `networkidle2` in your API requests. WebGL sites often maintain continuous network activity and never reach "network idle".

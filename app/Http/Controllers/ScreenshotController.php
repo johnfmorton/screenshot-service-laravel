@@ -93,7 +93,7 @@ class ScreenshotController extends Controller
             $data['expires_at'] = $screenshot->expires_at?->toIso8601String();
         }
 
-        if ($screenshot->status === ScreenshotStatus::Failed) {
+        if (in_array($screenshot->status, [ScreenshotStatus::Failed, ScreenshotStatus::Blocked], true)) {
             $data['error'] = $screenshot->error_message;
         }
 

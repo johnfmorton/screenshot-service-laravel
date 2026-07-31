@@ -4,6 +4,7 @@
         <x-admin.stat-card label="Active Screenshots" :value="$stats['active_screenshots']" accent />
         <x-admin.stat-card label="Pending" :value="$stats['pending_screenshots']" />
         <x-admin.stat-card label="Failed" :value="$stats['failed_screenshots']" />
+        <x-admin.stat-card label="Blocked" :value="$stats['blocked_screenshots']" />
         <x-admin.stat-card label="Today" :value="$stats['screenshots_today']" />
         <x-admin.stat-card label="API Keys" :value="$stats['total_api_keys']" />
         <x-admin.stat-card label="Active Keys" :value="$stats['active_api_keys']" />
@@ -59,6 +60,9 @@
                                             @break
                                         @case('failed')
                                             <x-admin.badge type="danger">Failed</x-admin.badge>
+                                            @break
+                                        @case('blocked')
+                                            <x-admin.badge type="warning">Blocked</x-admin.badge>
                                             @break
                                     @endswitch
                                 </td>

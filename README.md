@@ -184,7 +184,22 @@ GET /api/screenshots/{id}
 }
 ```
 
-**Status values:** `pending`, `processing`, `completed`, `failed`
+**Response (blocked):**
+```json
+{
+  "id": "9e5b4a3c-...",
+  "status": "blocked",
+  "url": "https://example.com",
+  "error": "Blocked by bot protection: the site responded with HTTP 403."
+}
+```
+
+**Status values:** `pending`, `processing`, `completed`, `failed`, `blocked`
+
+`blocked` means the site's bot protection turned the capture away rather than
+anything going wrong on this end. See [Bot protection](#bot-protection) for what
+to do about it. Blocked captures are never stored or cached, so a later request
+for the same URL retries against the origin rather than replaying the block page.
 
 ### Delete a Screenshot
 
@@ -216,6 +231,52 @@ Key environment variables:
 | `SCREENSHOT_DEFAULT_WAIT_UNTIL` | networkidle2 | Page load strategy (networkidle0, networkidle2, load, domcontentloaded) |
 | `SCREENSHOT_CHROME_PATH` | /usr/bin/chromium | Path to Chrome executable |
 | `SCREENSHOT_STORAGE_DISK` | s3 | Storage disk (s3 or public) |
+| `SCREENSHOT_DETECT_BLOCKS` | true | Detect bot-protection blocks (see below) |
+| `SCREENSHOT_FAIL_ON_ERROR_RESPONSE` | true | Fail on 4xx/5xx instead of capturing the error page |
+| `SCREENSHOT_CHALLENGE_WAIT_MS` | 15000 | How long to let a challenge interstitial resolve |
+| `SCREENSHOT_NEW_HEADLESS` | true | Use modern headless Chrome |
+| `SCREENSHOT_CHROME_SINGLE_PROCESS` | false | Add `--single-process` (saves memory, detectable, crash-prone) |
+
+## Bot protection
+
+Sites behind Cloudflare, Vercel, Akamai and similar services will sometimes
+refuse an automated capture, either with an outright `403` or by serving an
+interstitial ("We're verifying your browser", "Just a moment...").
+
+The service recognises both and records them as `blocked` rather than storing
+the block page as a screenshot. Interstitials that clear on their own within
+`SCREENSHOT_CHALLENGE_WAIT_MS` are waited out and captured normally.
+
+### Reducing how often it happens
+
+The durable fix is to be allowlisted, and it is the only one that doesn't rot.
+For a site you own or whose owner you can reach, it is a small change on their
+end:
+
+- **Cloudflare** — a WAF skip rule or an IP Access Rule for your server's
+  outbound IP
+- **Vercel** — a firewall bypass rule for the same
+
+That works best if your captures are identifiable and consistent, so give the
+service a static outbound IP and a stable user agent.
+
+Beyond that, the defaults already avoid the most obvious automation signals:
+modern headless Chrome rather than the legacy headless shell, no
+`--single-process`, and a user agent whose platform matches the client hints
+and the real machine. Keep the Chrome version in `SCREENSHOT_DEFAULT_USER_AGENT`
+roughly current — a UA pinned to a year-old browser is itself a signal.
+
+Two things worth knowing:
+
+- Overriding the user agent per request drops the default client hints, since
+  headers contradicting the requested UA are worse than sending none.
+- Setting headers only fixes the HTTP layer. Scripts reading
+  `navigator.userAgentData` still see the real platform, which is why an honest
+  user agent beats a spoofed one.
+
+If a site is deliberately blocking you and won't allowlist you, escalating past
+this gets fragile fast and may run against their terms of service. Routing just
+the `blocked` URLs to a commercial screenshot API is usually the better trade.
 
 ## Production Deployment
 

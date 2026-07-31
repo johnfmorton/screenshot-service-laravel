@@ -91,6 +91,11 @@ class Screenshot extends Model
         return $this->status === ScreenshotStatus::Failed;
     }
 
+    public function isBlocked(): bool
+    {
+        return $this->status === ScreenshotStatus::Blocked;
+    }
+
     public function isPending(): bool
     {
         return $this->status === ScreenshotStatus::Pending;

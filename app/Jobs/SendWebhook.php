@@ -71,7 +71,7 @@ class SendWebhook implements ShouldQueue
             $payload['expires_at'] = $this->screenshot->expires_at?->toIso8601String();
         }
 
-        if ($this->screenshot->status === ScreenshotStatus::Failed) {
+        if (in_array($this->screenshot->status, [ScreenshotStatus::Failed, ScreenshotStatus::Blocked], true)) {
             $payload['error'] = $this->screenshot->error_message;
         }
 

@@ -14,6 +14,7 @@
                 <option value="processing" {{ request('status') === 'processing' ? 'selected' : '' }}>Processing</option>
                 <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
                 <option value="failed" {{ request('status') === 'failed' ? 'selected' : '' }}>Failed</option>
+                <option value="blocked" {{ request('status') === 'blocked' ? 'selected' : '' }}>Blocked</option>
             </select>
             @if(auth()->user()->isSuperAdmin())
                 <select name="api_key" class="form-input">
@@ -78,6 +79,9 @@
                                             @break
                                         @case('failed')
                                             <x-admin.badge type="danger">Failed</x-admin.badge>
+                                            @break
+                                        @case('blocked')
+                                            <x-admin.badge type="warning">Blocked</x-admin.badge>
                                             @break
                                     @endswitch
                                 </td>

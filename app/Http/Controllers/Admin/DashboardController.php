@@ -35,6 +35,7 @@ class DashboardController extends Controller
                 ->count(),
             'pending_screenshots' => Screenshot::where('status', ScreenshotStatus::Pending)->count(),
             'failed_screenshots' => Screenshot::where('status', ScreenshotStatus::Failed)->count(),
+            'blocked_screenshots' => Screenshot::where('status', ScreenshotStatus::Blocked)->count(),
             'screenshots_today' => Screenshot::whereDate('created_at', Carbon::today())->count(),
             'total_api_keys' => ApiKey::count(),
             'active_api_keys' => ApiKey::where('is_active', true)->count(),
@@ -61,6 +62,9 @@ class DashboardController extends Controller
                 ->count(),
             'failed_screenshots' => Screenshot::whereIn('api_key_id', $apiKeyIds)
                 ->where('status', ScreenshotStatus::Failed)
+                ->count(),
+            'blocked_screenshots' => Screenshot::whereIn('api_key_id', $apiKeyIds)
+                ->where('status', ScreenshotStatus::Blocked)
                 ->count(),
             'screenshots_today' => Screenshot::whereIn('api_key_id', $apiKeyIds)
                 ->whereDate('created_at', Carbon::today())

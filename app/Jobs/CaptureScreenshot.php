@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\ScreenshotStatus;
 use App\Models\Screenshot;
+use App\Services\ChallengeDetector;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -18,7 +19,6 @@ class CaptureScreenshot implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 3;
     public array $backoff = [10, 30, 60];
 
     public function __construct(
@@ -26,58 +26,41 @@ class CaptureScreenshot implements ShouldQueue
     ) {}
 
     /**
-     * Get the job timeout in seconds.
-     * Allow extra time beyond the Browsershot timeout for image processing and upload.
+     * Bound how long this job may be retried for.
+     *
+     * Note this overrides any attempt limit — Laravel skips the max-attempts
+     * check entirely when retryUntil() is set, so neither a $tries property
+     * here nor `queue:work --tries` applies to this job.
+     *
+     * Retries only cover infrastructure failures and worker timeouts. A capture
+     * that fails or is blocked is recorded and not retried: the browser already
+     * spent the full timeout on it, and a WAF block won't clear within the
+     * backoff window.
+     *
+     * The window allows extra time beyond the Browsershot timeout for image
+     * processing and upload.
      */
     public function retryUntil(): \DateTime
     {
         $browsershotTimeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
 
-        return now()->addSeconds($browsershotTimeout + 60);
+        $challengeWait = config('screenshot.detect_blocks')
+            ? (int) ceil(config('screenshot.challenge_wait_ms') / 1000)
+            : 0;
+
+        return now()->addSeconds($browsershotTimeout + $challengeWait + 60);
     }
 
-    public function handle(): void
+    public function handle(ChallengeDetector $detector): void
     {
         $this->screenshot->update(['status' => ScreenshotStatus::Processing]);
 
+        $tempDir = sys_get_temp_dir();
+        $fullPath = $tempDir . '/' . $this->screenshot->id . '-full.png';
+        $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
+
         try {
-            $tempDir = sys_get_temp_dir();
-            $fullPath = $tempDir . '/' . $this->screenshot->id . '-full.png';
-            $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
-
-            $timeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
-
-            $browsershot = Browsershot::url($this->screenshot->url)
-                ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
-                ->setOption('waitUntil', $this->screenshot->wait_until)
-                ->timeout($timeout)
-                ->setChromePath(config('screenshot.chrome_path'))
-                ->noSandbox();
-
-            if (config('screenshot.chrome_memory_optimized')) {
-                $browsershot->addChromiumArguments([
-                    'disable-dev-shm-usage',
-                    'disable-gpu',
-                    'single-process',
-                ]);
-            }
-
-            if (config('screenshot.force_http1')) {
-                // Force HTTP/1.1. Some sites/CDNs trigger
-                // net::ERR_HTTP2_PROTOCOL_ERROR under headless Chrome's HTTP/2
-                // stack, which fails the capture outright.
-                $browsershot->addChromiumArguments(['disable-http2']);
-            }
-
-            // Prefer the per-request user agent, otherwise fall back to the
-            // configured default (a real desktop UA renders pages as a visitor
-            // would and avoids sites that block the "HeadlessChrome" UA).
-            $userAgent = $this->screenshot->user_agent ?: config('screenshot.default_user_agent');
-            if ($userAgent) {
-                $browsershot->userAgent($userAgent);
-            }
-
-            $browsershot->save($fullPath);
+            $this->buildBrowsershot($detector)->save($fullPath);
 
             $manager = new ImageManager(new Driver());
 
@@ -103,9 +86,6 @@ class CaptureScreenshot implements ShouldQueue
             Storage::disk($disk)->put($s3FullPath, file_get_contents($fullPath), 'public');
             Storage::disk($disk)->put($s3ThumbnailPath, file_get_contents($thumbnailPath), 'public');
 
-            @unlink($fullPath);
-            @unlink($thumbnailPath);
-
             $this->screenshot->update([
                 'status' => ScreenshotStatus::Completed,
                 'full_image_path' => $s3FullPath,
@@ -113,25 +93,112 @@ class CaptureScreenshot implements ShouldQueue
                 'captured_at' => Carbon::now(),
             ]);
 
-            if ($this->screenshot->webhook_url) {
-                SendWebhook::dispatch($this->screenshot);
-            }
-
+            $this->notify();
         } catch (Throwable $e) {
-            Log::error('Screenshot capture failed', [
-                'screenshot_id' => $this->screenshot->id,
-                'url' => $this->screenshot->url,
-                'error' => $e->getMessage(),
-            ]);
+            $this->recordFailure($e, $detector);
+        } finally {
+            @unlink($fullPath);
+            @unlink($thumbnailPath);
+        }
+    }
 
-            $this->screenshot->update([
-                'status' => ScreenshotStatus::Failed,
-                'error_message' => $e->getMessage(),
-            ]);
+    private function buildBrowsershot(ChallengeDetector $detector): Browsershot
+    {
+        $timeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
 
-            if ($this->screenshot->webhook_url) {
-                SendWebhook::dispatch($this->screenshot);
+        $browsershot = Browsershot::url($this->screenshot->url)
+            ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
+            ->setOption('waitUntil', $this->screenshot->wait_until)
+            ->timeout($timeout)
+            ->setChromePath(config('screenshot.chrome_path'))
+            ->noSandbox();
+
+        if (config('screenshot.new_headless')) {
+            // Modern headless Chrome rather than the legacy headless shell,
+            // which is trivially fingerprinted as automation.
+            $browsershot->newHeadless();
+        }
+
+        $arguments = [];
+
+        if (config('screenshot.chrome_memory_optimized')) {
+            $arguments[] = 'disable-dev-shm-usage';
+            $arguments[] = 'disable-gpu';
+        }
+
+        if (config('screenshot.chrome_single_process')) {
+            $arguments[] = 'single-process';
+        }
+
+        if (config('screenshot.force_http1')) {
+            // Force HTTP/1.1. Some sites/CDNs trigger
+            // net::ERR_HTTP2_PROTOCOL_ERROR under headless Chrome's HTTP/2
+            // stack, which fails the capture outright.
+            $arguments[] = 'disable-http2';
+        }
+
+        if ($arguments) {
+            $browsershot->addChromiumArguments($arguments);
+        }
+
+        // Prefer the per-request user agent, otherwise fall back to the
+        // configured default (a real desktop UA renders pages as a visitor
+        // would and avoids sites that block the "HeadlessChrome" UA).
+        $userAgent = $this->screenshot->user_agent ?: config('screenshot.default_user_agent');
+        if ($userAgent) {
+            $browsershot->userAgent($userAgent);
+        }
+
+        // Only send the default client hints alongside the default user agent.
+        // A per-request UA would contradict them, which is worse than sending
+        // nothing at all.
+        $headers = config('screenshot.default_headers', []);
+        if ($headers && ! $this->screenshot->user_agent) {
+            $browsershot->setExtraHttpHeaders($headers);
+        }
+
+        if (config('screenshot.detect_blocks')) {
+            if (config('screenshot.fail_on_error_response')) {
+                $browsershot->preventUnsuccessfulResponse();
             }
+
+            $browsershot->waitForFunction(
+                $detector->waitPredicate(),
+                null,
+                (int) config('screenshot.challenge_wait_ms')
+            );
+        }
+
+        return $browsershot;
+    }
+
+    private function recordFailure(Throwable $e, ChallengeDetector $detector): void
+    {
+        $blockReason = config('screenshot.detect_blocks')
+            ? $detector->blockReason($e)
+            : null;
+
+        $status = $blockReason ? ScreenshotStatus::Blocked : ScreenshotStatus::Failed;
+
+        Log::error('Screenshot capture failed', [
+            'screenshot_id' => $this->screenshot->id,
+            'url' => $this->screenshot->url,
+            'status' => $status->value,
+            'error' => $e->getMessage(),
+        ]);
+
+        $this->screenshot->update([
+            'status' => $status,
+            'error_message' => $blockReason ?? $e->getMessage(),
+        ]);
+
+        $this->notify();
+    }
+
+    private function notify(): void
+    {
+        if ($this->screenshot->webhook_url) {
+            SendWebhook::dispatch($this->screenshot);
         }
     }
 
@@ -142,8 +209,6 @@ class CaptureScreenshot implements ShouldQueue
             'error_message' => $exception->getMessage(),
         ]);
 
-        if ($this->screenshot->webhook_url) {
-            SendWebhook::dispatch($this->screenshot);
-        }
+        $this->notify();
     }
 }
