@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.1] - 2026-07-31
+
+### Added
+
+- `docs/client-integration.md` — an integration guide for projects that consume this service. Covers the new terminal `blocked` status and the polling pattern it breaks, the verified request and response shapes, webhook signature verification, and why `blocked` warrants a different retry policy and UI fallback than `failed`
+
+### Fixed
+
+- The API documentation endpoint (`GET /api/`) still advertised the pre-1.0.0 status set, so a client reading the service's own docs would treat `blocked` as an unknown status. It now lists `blocked` and notes that `error` accompanies it
+- The README's completed-response example documented top-level `image_url` and `thumbnail_url` keys. The endpoint has never returned those — it returns a nested `images.full` / `images.thumbnail` object. This error predates 1.0.0, so any client coded against that example was already broken
+
 ## [1.0.0] - 2026-07-31
 
 ### Added
