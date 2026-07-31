@@ -133,20 +133,38 @@ return [
     | Sent when a screenshot request doesn't specify its own user agent. A
     | real desktop Chrome UA renders pages the way a visitor would see them
     | and avoids the many sites that block the default "HeadlessChrome" UA.
-    | Set to an empty string to let Chrome use its own default.
     |
-    | This deliberately claims Linux, which is what the server actually runs.
-    | Claiming macOS or Windows instead leaves the UA contradicting the client
-    | hints below and the JS-level navigator, and that inconsistency scores
-    | worse with bot detection than an honest but less common platform does.
+    | Leave this unset. Chrome receives it as a --user-agent launch flag and so
+    | keeps sending its own sec-ch-ua headers, which report the real browser
+    | version — a version pinned here would contradict them on every request.
+    | Unset, the string is built from the installed binary by ChromeUserAgent
+    | and stays correct across Chrome upgrades on its own.
     |
-    | Keep the Chrome version roughly current. A UA pinned to a browser version
-    | that is a year old is itself a signal worth flagging.
+    | Set it only to pin something specific, and then keep the version current
+    | yourself. A per-request user_agent takes precedence over both.
     |
     */
-    'default_user_agent' => env(
-        'SCREENSHOT_DEFAULT_USER_AGENT',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
+    'default_user_agent' => env('SCREENSHOT_DEFAULT_USER_AGENT'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Agent Template
+    |--------------------------------------------------------------------------
+    |
+    | Shapes the user agent built from the installed Chrome. {version} is
+    | replaced with that browser's major version in the reduced form Chrome
+    | itself uses (major.0.0.0).
+    |
+    | This deliberately claims Linux, which is what the server actually runs.
+    | Claiming macOS or Windows instead leaves the UA contradicting the
+    | sec-ch-ua-platform hint Chrome sends and the JS-level navigator, and that
+    | inconsistency scores worse with bot detection than an honest but less
+    | common platform does.
+    |
+    */
+    'user_agent_template' => env(
+        'SCREENSHOT_USER_AGENT_TEMPLATE',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{version} Safari/537.36'
     ),
 
     /*
@@ -154,19 +172,15 @@ return [
     | Default Request Headers
     |--------------------------------------------------------------------------
     |
-    | Sent with every capture. The client hints here must agree with the user
-    | agent above — change the two together, or you reintroduce exactly the
-    | mismatch the user agent comment warns about.
-    |
-    | Note this only fixes the HTTP header layer. Scripts reading
-    | navigator.userAgentData still see the real platform, so these headers
-    | make an honest UA coherent rather than making a spoofed one convincing.
+    | Sent with every capture. Deliberately does not include any sec-ch-ua-*
+    | hints: setting the user agent at launch leaves Chrome emitting accurate
+    | ones of its own, matching both the real platform and what scripts read
+    | from navigator.userAgentData. Overriding them here could only introduce a
+    | disagreement between the header and the JS layer.
     |
     */
     'default_headers' => [
         'Accept-Language' => env('SCREENSHOT_ACCEPT_LANGUAGE', 'en-US,en;q=0.9'),
-        'sec-ch-ua-platform' => '"Linux"',
-        'sec-ch-ua-mobile' => '?0',
     ],
 
     /*

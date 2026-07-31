@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\ScreenshotStatus;
 use App\Models\Screenshot;
 use App\Services\ChallengeDetector;
+use App\Services\ChromeUserAgent;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -51,7 +52,7 @@ class CaptureScreenshot implements ShouldQueue
         return now()->addSeconds($browsershotTimeout + $challengeWait + 60);
     }
 
-    public function handle(ChallengeDetector $detector): void
+    public function handle(ChallengeDetector $detector, ChromeUserAgent $userAgents): void
     {
         $this->screenshot->update(['status' => ScreenshotStatus::Processing]);
 
@@ -60,7 +61,7 @@ class CaptureScreenshot implements ShouldQueue
         $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
 
         try {
-            $this->buildBrowsershot($detector)->save($fullPath);
+            $this->buildBrowsershot($detector, $userAgents)->save($fullPath);
 
             $manager = new ImageManager(new Driver());
 
@@ -102,7 +103,7 @@ class CaptureScreenshot implements ShouldQueue
         }
     }
 
-    private function buildBrowsershot(ChallengeDetector $detector): Browsershot
+    private function buildBrowsershot(ChallengeDetector $detector, ChromeUserAgent $userAgents): Browsershot
     {
         $timeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
 
@@ -137,23 +138,21 @@ class CaptureScreenshot implements ShouldQueue
             $arguments[] = 'disable-http2';
         }
 
-        if ($arguments) {
-            $browsershot->addChromiumArguments($arguments);
-        }
+        // Set the user agent as a launch flag rather than through Puppeteer's
+        // per-page override. The override makes Chrome stop sending sec-ch-ua
+        // and report an empty navigator.userAgentData.brands, which marks the
+        // browser as automated more plainly than the HeadlessChrome UA it
+        // replaces, and it doesn't reliably cover browser-initiated requests
+        // such as an implicit favicon fetch — those intermittently go out with
+        // the real headless UA. A launch flag has neither problem.
+        $arguments['user-agent'] = $this->screenshot->user_agent ?: $userAgents->resolve();
 
-        // Prefer the per-request user agent, otherwise fall back to the
-        // configured default (a real desktop UA renders pages as a visitor
-        // would and avoids sites that block the "HeadlessChrome" UA).
-        $userAgent = $this->screenshot->user_agent ?: config('screenshot.default_user_agent');
-        if ($userAgent) {
-            $browsershot->userAgent($userAgent);
-        }
+        $browsershot->addChromiumArguments($arguments);
 
-        // Only send the default client hints alongside the default user agent.
-        // A per-request UA would contradict them, which is worse than sending
-        // nothing at all.
+        // No client hints here: Chrome sends accurate ones by itself now that
+        // the user agent is set at launch. See config/screenshot.php.
         $headers = config('screenshot.default_headers', []);
-        if ($headers && ! $this->screenshot->user_agent) {
+        if ($headers) {
             $browsershot->setExtraHttpHeaders($headers);
         }
 

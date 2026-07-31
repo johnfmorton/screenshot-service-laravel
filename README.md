@@ -240,6 +240,7 @@ Key environment variables:
 | `SCREENSHOT_CHALLENGE_WAIT_MS` | 15000 | How long to let a challenge interstitial resolve |
 | `SCREENSHOT_NEW_HEADLESS` | true | Use modern headless Chrome |
 | `SCREENSHOT_CHROME_SINGLE_PROCESS` | false | Add `--single-process` (saves memory, detectable, crash-prone) |
+| `SCREENSHOT_DEFAULT_USER_AGENT` | *(derived)* | Pins the default UA. Leave unset to build it from the installed Chrome |
 
 ## Bot protection
 
@@ -266,14 +267,23 @@ service a static outbound IP and a stable user agent.
 
 Beyond that, the defaults already avoid the most obvious automation signals:
 modern headless Chrome rather than the legacy headless shell, no
-`--single-process`, and a user agent whose platform matches the client hints
-and the real machine. Keep the Chrome version in `SCREENSHOT_DEFAULT_USER_AGENT`
-roughly current — a UA pinned to a year-old browser is itself a signal.
+`--single-process`, and a user agent whose version and platform agree with the
+client hints Chrome sends and with the real machine.
 
 Two things worth knowing:
 
-- Overriding the user agent per request drops the default client hints, since
-  headers contradicting the requested UA are worse than sending none.
+- The user agent is passed to Chrome as a `--user-agent` launch flag, never as
+  Puppeteer's per-page override. The override makes Chrome drop `sec-ch-ua`
+  entirely and report an empty `navigator.userAgentData.brands` — a browser
+  claiming to be Chrome with no brand list is a clearer automation tell than the
+  `HeadlessChrome` UA it hides — and requests the page didn't initiate, such as
+  an implicit favicon fetch, can still escape carrying the real headless UA.
+- Because the flag leaves Chrome's own `sec-ch-ua` in place, and those hints
+  carry the *real* browser version, the user agent is built from the installed
+  binary rather than pinned. Leave `SCREENSHOT_DEFAULT_USER_AGENT` unset and it
+  stays correct across Chrome upgrades. Setting it pins the version, and a
+  pinned version that drifts from the installed browser contradicts the hints on
+  every request.
 - Setting headers only fixes the HTTP layer. Scripts reading
   `navigator.userAgentData` still see the real platform, which is why an honest
   user agent beats a spoofed one.

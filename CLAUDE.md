@@ -269,4 +269,20 @@ a string predicate as an expression rather than calling it, so a bare
 detection. `tests/Unit/ChallengeDetectorTest.php` runs the predicate through Node
 as a bare expression specifically to keep that regression visible.
 
+The user agent **must** reach Chrome as a `--user-agent` launch flag, never via
+Browsershot's `userAgent()` (Puppeteer's `page.setUserAgent()`). The per-page
+override makes Chrome stop sending `sec-ch-ua` and report an empty
+`navigator.userAgentData.brands`, which identifies the capture as automated more
+plainly than the `HeadlessChrome` UA it replaces, and it doesn't cover
+browser-initiated requests — an implicit favicon fetch intermittently goes out
+with the real headless UA. `tests/Feature/CaptureScreenshotUserAgentTest.php`
+asserts the flag is set and the `userAgent` option is not.
+
+Because the flag leaves Chrome's real `sec-ch-ua` in place, the UA version has to
+match the installed browser. `app/Services/ChromeUserAgent.php` reads it from
+`chrome_path --version` (cached an hour, since workers outlive Chrome upgrades)
+and fills `screenshot.user_agent_template`. Setting `SCREENSHOT_DEFAULT_USER_AGENT`
+overrides all of that and re-pins the version, so leave it unset unless you have
+a reason.
+
 **Timeout on heavy pages**: If screenshots timeout even with memory optimization, try using `wait_until: "load"` instead of `networkidle2` in your API requests. WebGL sites often maintain continuous network activity and never reach "network idle".

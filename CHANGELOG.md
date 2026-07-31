@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- The default user agent is now passed to Chrome as a `--user-agent` launch flag instead of through Puppeteer's per-page override. The override cost more than it bought: Chrome responds to it by dropping `sec-ch-ua` entirely and reporting an empty `navigator.userAgentData.brands`, so every capture presented as a browser claiming to be Chrome with no brand list — a plainer automation signal than the `HeadlessChrome` user agent 1.0.0 set out to hide. Verified end to end: captures now send `sec-ch-ua`, `sec-ch-ua-platform` and `sec-ch-ua-mobile` that agree with the user agent and with what scripts read from `navigator.userAgentData`
+- Requests the page didn't initiate escaped the per-page override. An implicit `/favicon.ico` fetch intermittently went out with the real `HeadlessChrome` user agent and the real platform, on a race that made the resulting blocks look random. A launch flag applies before any request is made
+- The two hardcoded `sec-ch-ua-platform` / `sec-ch-ua-mobile` request headers are gone. Chrome emits accurate ones itself once the user agent is set at launch, and a forced value could only disagree with the JS layer
+
+### Changed
+
+- `SCREENSHOT_DEFAULT_USER_AGENT` now defaults to unset, and the user agent is built from the installed Chrome by `App\Services\ChromeUserAgent` (cached an hour, since queue workers outlive Chrome's own upgrades). Restoring `sec-ch-ua` means those hints carry the real browser version, so a version pinned in config would contradict them on every request — deriving it keeps the two in agreement without anyone remembering to bump a string after an upgrade. Setting the variable still pins a specific string, and a per-request `user_agent` still takes precedence over both
+- Added `SCREENSHOT_USER_AGENT_TEMPLATE` for the shape of the derived string, with `{version}` standing in for the installed browser's major version
+
 ## [1.0.1] - 2026-07-31
 
 ### Added
