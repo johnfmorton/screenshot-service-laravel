@@ -62,6 +62,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue Wait Grace
+    |--------------------------------------------------------------------------
+    |
+    | How long a capture may sit in the queue before its deadline expires, on
+    | top of the time allowed for the capture itself.
+    |
+    | CaptureScreenshot::retryUntil() is a deadline measured from dispatch, not
+    | a budget for the work: Laravel resolves it once, stores it in the payload,
+    | and checks it before running the job. Queued time counts against it, and
+    | an expired job is failed without ever being attempted. Sized only for one
+    | capture, a brief backlog on a single worker is enough to fail requests
+    | that never ran — so this covers the wait.
+    |
+    | Raise it if captures are queued deeper than half an hour. There is no cost
+    | to a wide window: a failed or blocked capture is recorded rather than
+    | rethrown, so it never retries; only a worker dying requeues the work.
+    |
+    */
+    'queue_wait_grace' => (int) env('SCREENSHOT_QUEUE_WAIT_GRACE', 1800),
+
+    /*
+    |--------------------------------------------------------------------------
     | Chrome Path
     |--------------------------------------------------------------------------
     |

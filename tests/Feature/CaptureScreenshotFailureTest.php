@@ -83,6 +83,7 @@ class CaptureScreenshotFailureTest extends TestCase
         config([
             'screenshot.detect_blocks' => true,
             'screenshot.challenge_wait_ms' => 15000,
+            'screenshot.queue_wait_grace' => 0,
         ]);
 
         $screenshot = new Screenshot(['timeout' => 120]);
@@ -96,12 +97,52 @@ class CaptureScreenshotFailureTest extends TestCase
         config([
             'screenshot.detect_blocks' => false,
             'screenshot.challenge_wait_ms' => 15000,
+            'screenshot.queue_wait_grace' => 0,
         ]);
 
         $screenshot = new Screenshot(['timeout' => 120]);
         $window = (new CaptureScreenshot($screenshot))->retryUntil()->getTimestamp() - now()->getTimestamp();
 
         $this->assertLessThan(120 + 15 + 60, $window);
+    }
+
+    /**
+     * retryUntil() is a deadline measured from dispatch, and Laravel checks it
+     * before running the job. Queued time therefore counts against it, so a
+     * window sized for a single capture fails jobs that are merely waiting
+     * their turn — on one worker, two slow captures ahead is enough.
+     */
+    public function test_a_job_delayed_by_a_backlog_is_still_runnable_when_picked_up(): void
+    {
+        config([
+            'screenshot.detect_blocks' => true,
+            'screenshot.challenge_wait_ms' => 15000,
+            'screenshot.queue_wait_grace' => 1800,
+        ]);
+
+        $deadline = (new CaptureScreenshot(new Screenshot(['timeout' => 120])))->retryUntil();
+
+        // Two slow captures ahead of this one on a single worker.
+        $this->travel(240)->seconds();
+
+        $this->assertGreaterThan(
+            now()->getTimestamp(),
+            $deadline->getTimestamp(),
+            'The job would be failed without ever being attempted.'
+        );
+    }
+
+    public function test_the_queue_wait_grace_widens_the_window(): void
+    {
+        config([
+            'screenshot.detect_blocks' => false,
+            'screenshot.queue_wait_grace' => 1800,
+        ]);
+
+        $screenshot = new Screenshot(['timeout' => 120]);
+        $window = (new CaptureScreenshot($screenshot))->retryUntil()->getTimestamp() - now()->getTimestamp();
+
+        $this->assertGreaterThanOrEqual(1800 + 120, $window);
     }
 
     /**

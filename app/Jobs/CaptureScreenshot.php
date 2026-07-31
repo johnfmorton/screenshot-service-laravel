@@ -27,19 +27,26 @@ class CaptureScreenshot implements ShouldQueue
     ) {}
 
     /**
-     * Bound how long this job may be retried for.
+     * Bound how long this job stays valid, measured from dispatch.
      *
-     * Note this overrides any attempt limit — Laravel skips the max-attempts
-     * check entirely when retryUntil() is set, so neither a $tries property
-     * here nor `queue:work --tries` applies to this job.
+     * This is a deadline, not a duration budget for the work. Laravel resolves
+     * it once and bakes the timestamp into the payload (Queue::createPayload),
+     * then checks it *before* running the job on every pickup. Time the job
+     * spends queued therefore counts against the window exactly like time spent
+     * capturing, and a job whose deadline passed while it waited is failed
+     * without ever being attempted.
      *
-     * Retries only cover infrastructure failures and worker timeouts. A capture
-     * that fails or is blocked is recorded and not retried: the browser already
-     * spent the full timeout on it, and a WAF block won't clear within the
-     * backoff window.
+     * Hence the queue-wait grace: without it the window only covered one
+     * capture, so a short backlog on a single worker was enough to fail jobs
+     * that had never run.
      *
-     * The window allows extra time beyond the Browsershot timeout for image
-     * processing and upload.
+     * Note this also overrides any attempt limit — Laravel skips the
+     * max-attempts check entirely when retryUntil() is set, so neither a $tries
+     * property here nor `queue:work --tries` applies to this job.
+     *
+     * Being generous costs nothing. A capture that fails or is blocked is
+     * recorded rather than rethrown, so it never retries at all; only a worker
+     * dying mid-job puts the work back on the queue.
      */
     public function retryUntil(): \DateTime
     {
@@ -49,7 +56,9 @@ class CaptureScreenshot implements ShouldQueue
             ? (int) ceil(config('screenshot.challenge_wait_ms') / 1000)
             : 0;
 
-        return now()->addSeconds($browsershotTimeout + $challengeWait + 60);
+        $queueWaitGrace = (int) config('screenshot.queue_wait_grace');
+
+        return now()->addSeconds($queueWaitGrace + $browsershotTimeout + $challengeWait + 60);
     }
 
     public function handle(ChallengeDetector $detector, ChromeUserAgent $userAgents): void

@@ -241,6 +241,7 @@ Key environment variables:
 | `SCREENSHOT_NEW_HEADLESS` | true | Use modern headless Chrome |
 | `SCREENSHOT_CHROME_SINGLE_PROCESS` | false | Add `--single-process` (saves memory, detectable, crash-prone) |
 | `SCREENSHOT_DEFAULT_USER_AGENT` | *(derived)* | Pins the default UA. Leave unset to build it from the installed Chrome |
+| `SCREENSHOT_QUEUE_WAIT_GRACE` | 1800 | How long a capture may wait in the queue before its deadline expires |
 
 ## Bot protection
 

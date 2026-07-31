@@ -193,6 +193,18 @@ of this project's jobs do. `SendWebhook` sets `$tries` directly; `CaptureScreens
 defines `retryUntil()`, which makes Laravel skip the attempt-count check
 altogether. Change retry behaviour on the job, not on the worker command.
 
+`retryUntil()` is a **deadline measured from dispatch**, not a duration budget
+for the work. Laravel resolves it once into the job payload and checks it before
+running the job, so queued time counts against it and an expired job is failed
+without ever being attempted. That is what `screenshot.queue_wait_grace` exists
+to absorb — size the window for backlog, not for one capture.
+
+Three queue settings have to stay ordered: longest real capture (~360s, since
+the API caps `timeout` at 300 and Browsershot applies it to the Node process)
+< the worker's `--timeout` < `retry_after` on the queue connection. A worker
+timeout above `retry_after` lets a hung job be re-dispatched while it is still
+running; with a single worker it also stalls the whole queue for the duration.
+
 ## Production Server Setup
 
 ### Installing Chrome on Ubuntu (Forge/Production)

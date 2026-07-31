@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Captures could be marked `failed` without ever running. `CaptureScreenshot::retryUntil()` is a deadline measured from dispatch, not a budget for the work — Laravel resolves it once, stores the timestamp in the job payload, and checks it *before* executing the job on each pickup. Time spent queued therefore counted against a window sized for a single capture, so on a single worker two slow captures ahead of a job was enough to expire it in the queue. The client saw `has been attempted too many times or run too long` for a URL that was never fetched, and the webhook fired for it
+- Added `SCREENSHOT_QUEUE_WAIT_GRACE` (default `1800`), which extends that deadline to cover queue wait. Raise it if captures are queued deeper than half an hour. A wide window costs nothing: a failed or blocked capture is recorded rather than rethrown, so it never retries — only a worker dying mid-job requeues the work
+
 ## [1.1.0] - 2026-07-31
 
 ### Fixed
