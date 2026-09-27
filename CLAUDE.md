@@ -380,4 +380,27 @@ A `networkidle0`/`networkidle2` capture waits at most
 re-navigates and captures at `load` with the remaining budget. Only Puppeteer's
 navigation timeout triggers that; see `CaptureScreenshot::capture()`.
 
+### Blocked Retry Proxy
+
+Most blocks are about the server's DigitalOcean IP, not the browser: github.com
+and WordPress.com 403 the server but serve identical Chrome on a residential
+line. With `SCREENSHOT_BLOCKED_RETRY_PROXY` set, a capture recorded as blocked is
+retried once through that proxy with the remaining budget
+(`CaptureScreenshot::captureAvoidingIpBlocks()`). Everything else goes direct.
+If the retry fails for a non-block reason (proxy down), the original block is
+kept and a warning logged.
+
+The production proxy is Squid on the home Synology ("daisy",
+`100.111.58.60`), reached over Tailscale. Config is in `docs/blocked-retry-proxy/`.
+Three things must stay true:
+
+- **The proxy refuses private destinations.** Pages loaded through it can reach
+  the home LAN, and the app's URL check only sees the top-level URL.
+  `squid.conf` denies RFC 1918, loopback, link-local and CGNAT/Tailscale ranges.
+- **The server is ACL'd to the proxy port only.** It's internet-facing and
+  hosts 8 sites; untagged, it could reach every device on the tailnet. Tag it
+  `tag:forge` and allow that tag only `100.111.58.60:3128`.
+- **The server joins with `--accept-dns=false`.** MagicDNS would otherwise
+  take over `/etc/resolv.conf` for every site on the box.
+
 **Timeout on heavy pages**: If screenshots timeout even with memory optimization, try using `wait_until: "load"` instead of `networkidle2` in your API requests. WebGL sites often maintain continuous network activity and never reach "network idle".

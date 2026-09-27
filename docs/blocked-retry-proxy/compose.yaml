@@ -1,0 +1,16 @@
+# Synology Container Manager project for the blocked-retry proxy.
+# Put squid.conf next to this file, e.g. /volume1/docker/squid/.
+services:
+  squid:
+    image: ubuntu/squid:latest
+    restart: unless-stopped
+    ports:
+      # Loopback only, so nothing on the home LAN can use the proxy. Tailscale
+      # on Synology runs in userspace mode and hands tailnet connections to
+      # loopback. If the server can't connect, Tailscale is in TUN mode: use
+      # "100.111.58.60:3128:3128" (the NAS's tailnet address) instead.
+      - "127.0.0.1:3128:3128"
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro
+# Logs stay inside the container, not in its output:
+#   docker exec <container> tail /var/log/squid/access.log

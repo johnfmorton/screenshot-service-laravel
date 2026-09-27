@@ -168,6 +168,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Blocked Retry Proxy
+    |--------------------------------------------------------------------------
+    |
+    | A proxy to retry a capture through when the direct attempt is blocked,
+    | e.g. http://100.111.58.60:3128. Most blocks come from the server's
+    | datacenter IP rather than the browser, so a proxy on a residential line
+    | clears them. Only blocked captures use it; everything else goes direct.
+    |
+    | The proxy MUST refuse private destinations (RFC 1918, loopback,
+    | link-local, CGNAT/Tailscale). Pages loaded through it reach whatever
+    | network the proxy sits on, and this app's URL checks only see the top
+    | level URL. See "Blocked Retry Proxy" in CLAUDE.md for a Squid config.
+    |
+    */
+    'blocked_retry_proxy' => env('SCREENSHOT_BLOCKED_RETRY_PROXY') ?: null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Hide Automation
     |--------------------------------------------------------------------------
     |

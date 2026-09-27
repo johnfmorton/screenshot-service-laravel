@@ -89,7 +89,7 @@ class CaptureScreenshot implements ShouldQueue
             // between, and jobs queued before the check existed never had it.
             $guard->check($this->screenshot->url);
 
-            $browsershot = $this->capture($detector, $userAgents, $fullPath);
+            $browsershot = $this->captureAvoidingIpBlocks($detector, $userAgents, $fullPath);
 
             $this->assertRedirectsStayedPublic($browsershot, $guard);
 
@@ -155,9 +155,14 @@ class CaptureScreenshot implements ShouldQueue
      * challenge that never clears means something different, and a second
      * attempt would just repeat it.
      */
-    private function capture(ChallengeDetector $detector, ChromeUserAgent $userAgents, string $path): Browsershot
-    {
-        $budget = (int) ($this->screenshot->timeout ?? config('screenshot.default_timeout'));
+    private function capture(
+        ChallengeDetector $detector,
+        ChromeUserAgent $userAgents,
+        string $path,
+        ?int $budget = null,
+        ?string $proxy = null,
+    ): Browsershot {
+        $budget ??= (int) ($this->screenshot->timeout ?? config('screenshot.default_timeout'));
         $idleWindow = (int) config('screenshot.network_idle_timeout');
         $waitUntil = $this->screenshot->wait_until ?? config('screenshot.default_wait_until');
 
@@ -165,7 +170,7 @@ class CaptureScreenshot implements ShouldQueue
             && $idleWindow > 0
             && $idleWindow < $budget;
 
-        $browsershot = $this->buildBrowsershot($detector, $userAgents);
+        $browsershot = $this->buildBrowsershot($detector, $userAgents, null, $budget, $proxy);
 
         if (! $canFallBack) {
             $this->takeScreenshot($browsershot, $path);
@@ -199,10 +204,67 @@ class CaptureScreenshot implements ShouldQueue
             'remaining_budget' => $remaining,
         ]);
 
-        $fallback = $this->buildBrowsershot($detector, $userAgents, 'load', $remaining);
+        $fallback = $this->buildBrowsershot($detector, $userAgents, 'load', $remaining, $proxy);
         $this->takeScreenshot($fallback, $path);
 
         return $fallback;
+    }
+
+    /**
+     * Retries a blocked capture once through SCREENSHOT_BLOCKED_RETRY_PROXY.
+     *
+     * Most blocks this service sees are about the server's datacenter IP, not
+     * the browser: github.com and WordPress.com returned 403 to the capture
+     * from DigitalOcean but served identical Chrome from a residential
+     * connection. A proxy on a residential line fixes those. Everything else
+     * still goes direct, so the proxy only carries these retries.
+     *
+     * The retry gets what remains of the capture's timeout. If it fails for
+     * any reason other than another block (the proxy being unreachable, say),
+     * the original block is what's recorded: that's the result that describes
+     * the site, and the proxy's failure is logged instead.
+     */
+    private function captureAvoidingIpBlocks(ChallengeDetector $detector, ChromeUserAgent $userAgents, string $path): Browsershot
+    {
+        $proxy = config('screenshot.blocked_retry_proxy');
+        $budget = (int) ($this->screenshot->timeout ?? config('screenshot.default_timeout'));
+        $started = now();
+
+        try {
+            return $this->capture($detector, $userAgents, $path, $budget);
+        } catch (Throwable $blocked) {
+            $remaining = $budget - (int) ceil($started->diffInSeconds(now(), true));
+
+            if (! $proxy
+                || ! config('screenshot.detect_blocks')
+                || $detector->blockReason($blocked) === null
+                || $remaining < self::MIN_FALLBACK_SECONDS) {
+                throw $blocked;
+            }
+        }
+
+        Log::info('Capture blocked; retrying through the proxy', [
+            'screenshot_id' => $this->screenshot->id,
+            'url' => $this->screenshot->url,
+            'reason' => $detector->blockReason($blocked),
+            'remaining_budget' => $remaining,
+        ]);
+
+        try {
+            return $this->capture($detector, $userAgents, $path, $remaining, $proxy);
+        } catch (Throwable $viaProxy) {
+            if ($detector->blockReason($viaProxy) !== null) {
+                throw $viaProxy;
+            }
+
+            Log::warning('Proxy retry failed; keeping the original block', [
+                'screenshot_id' => $this->screenshot->id,
+                'url' => $this->screenshot->url,
+                'error' => $viaProxy->getMessage(),
+            ]);
+
+            throw $blocked;
+        }
     }
 
     protected function takeScreenshot(Browsershot $browsershot, string $path): void
@@ -220,6 +282,7 @@ class CaptureScreenshot implements ShouldQueue
         ChromeUserAgent $userAgents,
         ?string $waitUntil = null,
         ?int $timeout = null,
+        ?string $proxy = null,
     ): Browsershot {
         $timeout ??= $this->screenshot->timeout ?? config('screenshot.default_timeout');
 
@@ -231,6 +294,10 @@ class CaptureScreenshot implements ShouldQueue
 
         if (! config('screenshot.chrome_sandbox')) {
             $browsershot->noSandbox();
+        }
+
+        if ($proxy) {
+            $browsershot->setProxyServer($proxy);
         }
 
         if (config('screenshot.new_headless')) {

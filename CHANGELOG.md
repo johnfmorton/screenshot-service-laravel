@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `SCREENSHOT_BLOCKED_RETRY_PROXY` retries a blocked capture once through a proxy. Most blocks come from the server's datacenter IP rather than the browser — github.com, WordPress.com and securingelections.org returned 403 from DigitalOcean but served identical Chrome from a residential connection — so a proxy on a residential line clears them. Only blocked captures use it, with whatever remains of the capture's timeout. If the retry fails for another reason, such as the proxy being unreachable, the original block is recorded and the proxy's failure logged. `docs/blocked-retry-proxy/` has a Squid config that refuses private destinations and a Synology Container Manager project for running it
+
 ## [1.3.0] - 2026-09-27
 
 ### Fixed
