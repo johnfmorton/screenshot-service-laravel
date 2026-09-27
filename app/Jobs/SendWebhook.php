@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\ScreenshotStatus;
+use App\Exceptions\UrlNotAllowed;
 use App\Models\Screenshot;
 use App\Services\PublicUrlGuard;
 use Carbon\Carbon;
@@ -10,7 +11,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use InvalidArgumentException;
 use Throwable;
 
 class SendWebhook implements ShouldQueue
@@ -32,7 +32,7 @@ class SendWebhook implements ShouldQueue
 
         try {
             $target = $guard->check($this->screenshot->webhook_url);
-        } catch (InvalidArgumentException $e) {
+        } catch (UrlNotAllowed $e) {
             // Not retried: the address won't become acceptable by waiting.
             Log::warning('Webhook not sent: URL not allowed', [
                 'screenshot_id' => $this->screenshot->id,
@@ -43,12 +43,21 @@ class SendWebhook implements ShouldQueue
             return;
         }
 
-        $payload = $this->buildPayload();
-        $headers = ['Content-Type' => 'application/json'];
+        // Signed and sent as the same bytes. Letting the HTTP client encode
+        // the payload separately relied on two encoders happening to agree.
+        $body = json_encode($this->buildPayload());
+        $timestamp = (string) time();
+        $headers = ['X-Webhook-Timestamp' => $timestamp];
 
         if ($this->screenshot->webhook_secret) {
-            $signature = hash_hmac('sha256', json_encode($payload), $this->screenshot->webhook_secret);
-            $headers['X-Signature-256'] = $signature;
+            $secret = $this->screenshot->webhook_secret;
+
+            // Body only, as clients have always verified it.
+            $headers['X-Signature-256'] = hash_hmac('sha256', $body, $secret);
+
+            // Covers the timestamp too, so a receiver that checks it can
+            // reject a captured request replayed later.
+            $headers['X-Signature-256-Timestamped'] = hash_hmac('sha256', "{$timestamp}.{$body}", $secret);
         }
 
         // Connect to the address that was just checked rather than letting
@@ -59,7 +68,8 @@ class SendWebhook implements ShouldQueue
             ->withOptions($this->pinnedResolution($target))
             ->withoutRedirecting()
             ->timeout(30)
-            ->post($this->screenshot->webhook_url, $payload);
+            ->withBody($body, 'application/json')
+            ->post($this->screenshot->webhook_url);
 
         if ($response->successful()) {
             $this->screenshot->update(['webhook_sent_at' => Carbon::now()]);

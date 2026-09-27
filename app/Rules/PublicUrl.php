@@ -2,10 +2,10 @@
 
 namespace App\Rules;
 
+use App\Exceptions\UrlNotAllowed;
 use App\Services\PublicUrlGuard;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
-use InvalidArgumentException;
 
 class PublicUrl implements ValidationRule
 {
@@ -17,7 +17,7 @@ class PublicUrl implements ValidationRule
 
         try {
             app(PublicUrlGuard::class)->check($value);
-        } catch (InvalidArgumentException $e) {
+        } catch (UrlNotAllowed $e) {
             $fail("The :attribute is not allowed. {$e->getMessage()}");
         }
     }

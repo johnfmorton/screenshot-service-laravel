@@ -68,7 +68,9 @@ class ApiKeyHashingTest extends TestCase
      */
     public function test_keys_issued_before_the_migration_keep_working(): void
     {
-        $this->artisan('migrate:rollback', ['--step' => 1]);
+        $this->artisan('migrate:rollback', [
+            '--path' => 'database/migrations/2026_09_27_000002_hash_api_keys.php',
+        ]);
 
         DB::table('api_keys')->insert([
             'id' => fake()->uuid(),

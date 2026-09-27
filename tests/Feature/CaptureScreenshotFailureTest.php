@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Queue;
 use ReflectionMethod;
 use RuntimeException;
 use Spatie\Browsershot\Exceptions\UnsuccessfulResponse;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 use Throwable;
 
@@ -32,12 +34,69 @@ class CaptureScreenshotFailureTest extends TestCase
 
     public function test_an_ordinary_error_is_still_recorded_as_failed(): void
     {
-        $screenshot = $this->recordFailure(
-            new RuntimeException('net::ERR_NAME_NOT_RESOLVED')
-        );
+        $screenshot = $this->recordFailure($this->browserFailure(
+            'Error: net::ERR_NAME_NOT_RESOLVED at https://example.com/'
+        ));
 
         $this->assertSame(ScreenshotStatus::Failed, $screenshot->status);
-        $this->assertStringContainsString('ERR_NAME_NOT_RESOLVED', $screenshot->error_message);
+        $this->assertSame('net::ERR_NAME_NOT_RESOLVED at https://example.com/', $screenshot->error_message);
+    }
+
+    /**
+     * Browsershot's exception message is the whole node command line — server
+     * paths, every Chrome flag — followed by a stack trace. error_message goes
+     * to API clients and webhooks, so none of that can reach it.
+     */
+    public function test_the_command_line_and_stack_trace_stay_out_of_the_client_message(): void
+    {
+        $screenshot = $this->recordFailure($this->browserFailure(implode("\n", [
+            'Error: net::ERR_CERT_DATE_INVALID at https://example.com/',
+            '    at navigate (/var/www/html/node_modules/puppeteer-core/lib/cjs/puppeteer/cdp/Frame.js:184:27)',
+        ])));
+
+        $this->assertSame('net::ERR_CERT_DATE_INVALID at https://example.com/', $screenshot->error_message);
+        $this->assertStringContainsString('/var/www/html', $screenshot->error_detail);
+        $this->assertStringContainsString('The command', $screenshot->error_detail);
+    }
+
+    public function test_a_navigation_timeout_is_reported(): void
+    {
+        $screenshot = $this->recordFailure($this->browserFailure(
+            'TimeoutError: Navigation timeout of 30000 ms exceeded'
+        ));
+
+        $this->assertSame('Navigation timeout of 30000 ms exceeded', $screenshot->error_message);
+    }
+
+    /**
+     * A Chrome that won't launch is our problem, and its error names paths and
+     * flags. The client gets a generic message; the admin gets the detail.
+     */
+    public function test_a_server_side_browser_failure_is_reported_generically(): void
+    {
+        $screenshot = $this->recordFailure($this->browserFailure(
+            'Error: Failed to launch the browser process! /usr/bin/chromium: No usable sandbox!'
+        ));
+
+        $this->assertSame('The browser failed to capture the page.', $screenshot->error_message);
+        $this->assertStringContainsString('No usable sandbox', $screenshot->error_detail);
+    }
+
+    public function test_an_unexpected_error_is_reported_generically(): void
+    {
+        $screenshot = $this->recordFailure(
+            new RuntimeException('Error executing "PutObject" on "https://my-private-bucket.s3.amazonaws.com/..."')
+        );
+
+        $this->assertSame('The capture failed because of an internal error.', $screenshot->error_message);
+        $this->assertStringContainsString('my-private-bucket', $screenshot->error_detail);
+    }
+
+    public function test_the_raw_detail_is_not_serialized(): void
+    {
+        $screenshot = $this->recordFailure(new RuntimeException('internal'));
+
+        $this->assertArrayNotHasKey('error_detail', $screenshot->toArray());
     }
 
     /**
@@ -143,6 +202,21 @@ class CaptureScreenshotFailureTest extends TestCase
         $window = (new CaptureScreenshot($screenshot))->retryUntil()->getTimestamp() - now()->getTimestamp();
 
         $this->assertGreaterThanOrEqual(1800 + 120, $window);
+    }
+
+    /**
+     * A real failed process, so the exception carries Browsershot's actual
+     * message shape: the command line, then the process's stderr.
+     */
+    private function browserFailure(string $stderr): ProcessFailedException
+    {
+        $process = Process::fromShellCommandline(
+            // ':' makes the node invocation a no-op; only its text matters.
+            ": node '/var/www/html/vendor/spatie/browsershot/bin/browser.cjs' '{\"args\":[\"--no-sandbox\"]}'; printf '%s\\n' \"\$STDERR\" >&2; exit 1"
+        );
+        $process->run(null, ['STDERR' => $stderr]);
+
+        return new ProcessFailedException($process);
     }
 
     /**

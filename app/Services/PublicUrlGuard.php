@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\UrlNotAllowed;
 use Closure;
-use InvalidArgumentException;
 
 /**
  * Decides whether a URL points somewhere this service is allowed to fetch.
@@ -37,7 +37,7 @@ class PublicUrlGuard
      *
      * @return array{host: string, addresses: list<string>}
      *
-     * @throws InvalidArgumentException
+     * @throws UrlNotAllowed
      */
     public function check(string $url): array
     {
@@ -45,7 +45,7 @@ class PublicUrlGuard
         // Refusing them outright avoids having to reason about which host
         // each parser would pick.
         if (preg_match('/[\\\\\s\x00-\x1f]/', $url)) {
-            throw new InvalidArgumentException('The URL contains characters that are not allowed.');
+            throw new UrlNotAllowed('The URL contains characters that are not allowed.');
         }
 
         $parts = parse_url($url);
@@ -53,11 +53,11 @@ class PublicUrlGuard
         $host = strtolower(trim($parts['host'] ?? '', '[]'));
 
         if (! in_array($scheme, ['http', 'https'], true)) {
-            throw new InvalidArgumentException('Only http and https URLs are allowed.');
+            throw new UrlNotAllowed('Only http and https URLs are allowed.');
         }
 
         if ($host === '') {
-            throw new InvalidArgumentException('The URL has no host.');
+            throw new UrlNotAllowed('The URL has no host.');
         }
 
         if (config('screenshot.allow_private_urls')) {
@@ -67,12 +67,12 @@ class PublicUrlGuard
         $addresses = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : $this->resolve($host);
 
         if ($addresses === []) {
-            throw new InvalidArgumentException('The URL host could not be resolved.');
+            throw new UrlNotAllowed('The URL host could not be resolved.');
         }
 
         foreach ($addresses as $address) {
             if (! self::isPublicAddress($address)) {
-                throw new InvalidArgumentException('The URL must point to a public address.');
+                throw new UrlNotAllowed('The URL must point to a public address.');
             }
         }
 
@@ -85,7 +85,7 @@ class PublicUrlGuard
             $this->check($url);
 
             return true;
-        } catch (InvalidArgumentException) {
+        } catch (UrlNotAllowed) {
             return false;
         }
     }

@@ -141,6 +141,26 @@ header: HMAC-SHA256 of the raw JSON body, keyed with that secret. Verify it
 against the **raw body bytes**, not a re-serialized copy of the parsed JSON — key
 order and escaping will differ and the signature won't match.
 
+That signature doesn't cover when the request was sent, so a captured webhook
+could be replayed later and would still verify. To rule that out, verify
+`X-Signature-256-Timestamped` instead: HMAC-SHA256 of
+`{X-Webhook-Timestamp}.{raw body}` with the same secret, where the timestamp
+header is Unix seconds. Reject the request if the signature doesn't match or
+the timestamp is more than a few minutes old.
+
+```php
+$timestamp = $request->header('X-Webhook-Timestamp');
+$expected = hash_hmac('sha256', $timestamp . '.' . $request->getContent(), $secret);
+
+if (! hash_equals($expected, (string) $request->header('X-Signature-256-Timestamped'))
+    || abs(time() - (int) $timestamp) > 300) {
+    abort(401);
+}
+```
+
+Retries are signed afresh with a new timestamp, so a delivery that arrives late
+because it was retried still passes.
+
 ---
 
 ## Two behaviour changes that alter what you'll see
@@ -187,6 +207,12 @@ with a `Retry-After` header and `X-RateLimit-*` headers on the response — that
 means *this client* is sending too many requests. A `blocked` status whose error
 mentions HTTP 429 means the *target site* rate-limited the capture. They call for
 opposite responses; don't collapse them into one handler.
+
+The service also returns 429 with `"error": "Too many pending captures"` when
+this key already has too many captures queued or running (25 by default). It
+has no `Retry-After`: wait for some of your pending captures to finish, then
+submit more. A client that sends a large batch at once should queue on its own
+side rather than rely on the service to accept everything.
 
 ---
 

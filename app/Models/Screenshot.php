@@ -29,6 +29,7 @@ class Screenshot extends Model
         'full_image_path',
         'thumbnail_path',
         'error_message',
+        'error_detail',
         'webhook_url',
         'webhook_secret',
         'webhook_sent_at',
@@ -51,6 +52,7 @@ class Screenshot extends Model
 
     protected $hidden = [
         'webhook_secret',
+        'error_detail',
     ];
 
     public function apiKey(): BelongsTo

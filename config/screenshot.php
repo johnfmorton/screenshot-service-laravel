@@ -349,6 +349,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | S3 Public ACL
+    |--------------------------------------------------------------------------
+    |
+    | Upload screenshots to S3 with a public-read ACL. Needed only if images
+    | are served straight from the bucket (AWS_URL unset). Behind CloudFront
+    | with origin access control, set this to false and keep the bucket's
+    | Block Public Access on: CloudFront reads through its own bucket policy.
+    | With Block Public Access on, a public ACL makes every upload fail.
+    |
+    */
+    's3_public_acl' => (bool) env('SCREENSHOT_S3_PUBLIC_ACL', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage Disk
     |--------------------------------------------------------------------------
     |

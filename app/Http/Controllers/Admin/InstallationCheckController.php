@@ -64,6 +64,14 @@ class InstallationCheckController extends Controller
 
     public function checkStatus(Screenshot $screenshot): JsonResponse
     {
+        $user = auth()->user();
+
+        // Sub users may only poll captures made with their own keys; this is
+        // an admin route, not a way to read anyone's results by ID.
+        if (!$user->isSuperAdmin() && !$user->apiKeys()->whereKey($screenshot->api_key_id)->exists()) {
+            abort(404);
+        }
+
         $data = [
             'id' => $screenshot->id,
             'status' => $screenshot->status->value,
@@ -77,8 +85,11 @@ class InstallationCheckController extends Controller
         }
 
         if ($screenshot->isFailed()) {
-            $data['error_message'] = $screenshot->error_message;
-            $data['troubleshooting'] = $this->getTroubleshootingTips($screenshot->error_message);
+            // The raw error, not the client-facing summary: this page exists
+            // to diagnose the installation, and the tips key off its wording.
+            $detail = $screenshot->error_detail ?? $screenshot->error_message;
+            $data['error_message'] = $detail;
+            $data['troubleshooting'] = $this->getTroubleshootingTips($detail);
         }
 
         return response()->json($data);
@@ -165,6 +176,45 @@ class InstallationCheckController extends Controller
                     ? 'CloudFront URL configured'
                     : 'Not set - will use direct S3 URLs',
             ];
+        }
+
+        return [...$checks, ...$this->getSecurityChecks()];
+    }
+
+    /**
+     * Settings that are fine on a laptop and dangerous on a server. Flagged
+     * only outside the local environment, where they're usually deliberate.
+     */
+    private function getSecurityChecks(): array
+    {
+        $local = app()->environment('local');
+        $https = str_starts_with((string) config('app.url'), 'https://');
+        $s3 = config('screenshot.storage_disk') === 's3';
+
+        $check = fn (string $name, string $value, bool $ok, string $problem, string $severity = 'error') => [
+            'name' => $name,
+            'value' => $value,
+            'status' => $ok || $local ? 'success' : $severity,
+            'message' => $ok || $local ? null : $problem,
+        ];
+
+        $checks = [
+            $check('APP_DEBUG', config('app.debug') ? 'true' : 'false', ! config('app.debug'),
+                'Debug mode shows stack traces, queries and environment details to anyone who triggers an error'),
+            $check('SCREENSHOT_ALLOW_PRIVATE_URLS', config('screenshot.allow_private_urls') ? 'true' : 'false', ! config('screenshot.allow_private_urls'),
+                'API clients can capture the metadata endpoint, localhost and the private network'),
+            $check('SCREENSHOT_CHROME_SANDBOX', config('screenshot.chrome_sandbox') ? 'true' : 'false', (bool) config('screenshot.chrome_sandbox'),
+                'Chrome renders client-chosen pages unsandboxed; a browser exploit would run as the worker user', 'warning'),
+        ];
+
+        if ($https) {
+            $checks[] = $check('SESSION_SECURE_COOKIE', config('session.secure') ? 'true' : '(not set)', (bool) config('session.secure'),
+                'The admin session cookie can be sent over plain HTTP', 'warning');
+        }
+
+        if ($s3 && config('filesystems.disks.s3.url')) {
+            $checks[] = $check('SCREENSHOT_S3_PUBLIC_ACL', config('screenshot.s3_public_acl') ? 'true' : 'false', ! config('screenshot.s3_public_acl'),
+                'Images are served through AWS_URL, so objects need no public ACL; set false and enable Block Public Access on the bucket', 'warning');
         }
 
         return $checks;

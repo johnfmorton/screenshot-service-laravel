@@ -129,7 +129,8 @@ Screenshots are stored on S3 and served via CloudFront for production deployment
 1. Go to AWS Console → S3 → Create bucket
 2. Choose a unique bucket name (e.g., `myapp-screenshots`)
 3. Select your preferred region (e.g., `us-east-1`)
-4. Uncheck "Block all public access" (screenshots are served via CloudFront)
+4. Leave "Block all public access" **on**. CloudFront reads the bucket through
+   origin access control (step 3), so nothing needs to be public
 5. Create the bucket
 
 ### 2. Create an IAM User
@@ -180,9 +181,14 @@ AWS_DEFAULT_REGION=us-east-1
 AWS_BUCKET=myapp-screenshots
 AWS_URL=https://d1234abcd.cloudfront.net
 AWS_SCREENSHOT_STORAGE_PATH=screenshots
+SCREENSHOT_S3_PUBLIC_ACL=false
 ```
 
 The `AWS_URL` setting makes screenshot URLs use your CloudFront distribution instead of direct S3 URLs.
+
+`SCREENSHOT_S3_PUBLIC_ACL` defaults to `true` for older deployments that serve
+images straight from S3. Set it to `false` with CloudFront: a bucket with Block
+Public Access on rejects public ACLs, so leaving it `true` fails every upload.
 
 ## Queue Workers
 
