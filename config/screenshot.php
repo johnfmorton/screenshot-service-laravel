@@ -107,6 +107,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Chrome Sandbox
+    |--------------------------------------------------------------------------
+    |
+    | Chrome renders arbitrary pages chosen by API clients. The sandbox confines
+    | each renderer, so a browser exploit in a hostile page is contained there
+    | instead of running as the worker's user with access to .env and every
+    | other site on the box.
+    |
+    | Google Chrome from Google's apt repository ships the setuid helper the
+    | sandbox needs. Disable it only where it can't start: running as root, or
+    | inside a container with Docker's default seccomp profile (DDEV sets this
+    | to false for that reason). Chrome's error is "No usable sandbox!".
+    |
+    */
+    'chrome_sandbox' => (bool) env('SCREENSHOT_CHROME_SANDBOX', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Chrome Single Process Mode
     |--------------------------------------------------------------------------
     |
@@ -204,6 +222,19 @@ return [
     'default_headers' => [
         'Accept-Language' => env('SCREENSHOT_ACCEPT_LANGUAGE', 'en-US,en;q=0.9'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Max Pending Captures Per Key
+    |--------------------------------------------------------------------------
+    |
+    | How many captures one API key may have queued or running at once. The
+    | hourly rate limit doesn't stop a key filling the queue in a burst, and
+    | with one worker that delays every other client behind it. Requests over
+    | the cap get a 429 (cache hits still return normally). 0 disables it.
+    |
+    */
+    'max_pending_per_key' => (int) env('SCREENSHOT_MAX_PENDING_PER_KEY', 25),
 
     /*
     |--------------------------------------------------------------------------

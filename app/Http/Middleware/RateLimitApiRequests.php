@@ -5,11 +5,13 @@ namespace App\Http\Middleware;
 use App\Models\ApiKey;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Response;
 
 class RateLimitApiRequests
 {
+    private const WINDOW_SECONDS = 3600;
+
     public function handle(Request $request, Closure $next): Response
     {
         $apiKey = $request->attributes->get('api_key');
@@ -23,46 +25,32 @@ class RateLimitApiRequests
             return $next($request);
         }
 
-        $cacheKey = "rate_limit:{$apiKey->id}";
-        $windowSeconds = 3600; // 1 hour
+        $limiterKey = "api-key:{$apiKey->id}";
 
-        $currentCount = Cache::get($cacheKey, 0);
-        $remaining = max(0, $apiKey->rate_limit - $currentCount);
+        // Count first and decide on the result. The increment is atomic, so
+        // concurrent requests each get a distinct count; reading the counter
+        // and writing it back separately let a burst through together.
+        $hits = RateLimiter::increment($limiterKey, self::WINDOW_SECONDS);
+        $resetsIn = max(1, RateLimiter::availableIn($limiterKey));
 
-        // Check if rate limit exceeded
-        if ($currentCount >= $apiKey->rate_limit) {
-            $ttl = Cache::getStore()->get($cacheKey . ':ttl');
-            $retryAfter = $ttl ? max(1, $ttl - time()) : $windowSeconds;
-
+        if ($hits > $apiKey->rate_limit) {
             return response()->json([
                 'error' => 'Rate limit exceeded',
                 'message' => "You have exceeded your rate limit of {$apiKey->rate_limit} requests per hour.",
-                'retry_after' => $retryAfter,
+                'retry_after' => $resetsIn,
             ], 429)->withHeaders([
                 'X-RateLimit-Limit' => $apiKey->rate_limit,
                 'X-RateLimit-Remaining' => 0,
-                'X-RateLimit-Reset' => time() + $retryAfter,
-                'Retry-After' => $retryAfter,
+                'X-RateLimit-Reset' => time() + $resetsIn,
+                'Retry-After' => $resetsIn,
             ]);
-        }
-
-        // Increment the counter
-        if ($currentCount === 0) {
-            // First request in the window
-            Cache::put($cacheKey, 1, $windowSeconds);
-            Cache::put($cacheKey . ':ttl', time() + $windowSeconds, $windowSeconds);
-        } else {
-            Cache::increment($cacheKey);
         }
 
         $response = $next($request);
 
-        // Add rate limit headers to successful responses
         $response->headers->set('X-RateLimit-Limit', $apiKey->rate_limit);
-        $response->headers->set('X-RateLimit-Remaining', max(0, $remaining - 1));
-
-        $ttl = Cache::get($cacheKey . ':ttl', time() + $windowSeconds);
-        $response->headers->set('X-RateLimit-Reset', $ttl);
+        $response->headers->set('X-RateLimit-Remaining', $apiKey->rate_limit - $hits);
+        $response->headers->set('X-RateLimit-Reset', time() + $resetsIn);
 
         return $response;
     }

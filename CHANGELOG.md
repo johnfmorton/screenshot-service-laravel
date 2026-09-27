@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Deleting a user now deletes their API keys. The foreign key used to null the owner instead, leaving the deleted user's key active and still authenticating. The key's foreign key now cascades too, covering users deleted outside the admin panel
 - Deleting an API key now removes its stored images (queued, in chunks of 500) instead of orphaning them in storage
 - API authentication runs before route model binding. An unauthenticated request for an unknown screenshot ID used to return 404 rather than 401, revealing which IDs exist
+- Chrome now runs sandboxed. It rendered every client-chosen page with `--no-sandbox`, so a renderer exploit would have run as the worker's user. Controlled by `SCREENSHOT_CHROME_SANDBOX` (default `true`); DDEV sets it to `false` because Docker's default seccomp profile blocks the sandbox. **Check the sandbox starts on the server before deploying** (see "Chrome Sandbox" in CLAUDE.md), or every capture will fail with `No usable sandbox!`
+- The hourly API rate limit read the counter and wrote it back as separate steps, so concurrent requests could all pass on the same count. The decision now uses the value from an atomic increment
+- Each API key may have at most `SCREENSHOT_MAX_PENDING_PER_KEY` (default `25`, `0` disables) captures queued or running at once; further requests get a 429. Keys with no hourly limit could otherwise fill the single worker's queue and delay every other client. Cached results are still returned at the cap, and captures past their deadline stop counting so a dead worker can't lock a key out
 - The admin login is rate limited: five failures per email and IP locks that pair out for a minute, and the route allows 20 attempts per minute per IP to slow password spraying across accounts
 
 ## [1.1.1] - 2026-07-31

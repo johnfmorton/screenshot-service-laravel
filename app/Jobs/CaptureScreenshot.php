@@ -52,7 +52,16 @@ class CaptureScreenshot implements ShouldQueue
      */
     public function retryUntil(): \DateTime
     {
-        $browsershotTimeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
+        return now()->addSeconds(self::deadlineSeconds($this->screenshot->timeout));
+    }
+
+    /**
+     * Seconds from dispatch until a capture can no longer run. Past this, a
+     * row still marked pending or processing belongs to a job that is gone.
+     */
+    public static function deadlineSeconds(?int $timeout = null): int
+    {
+        $browsershotTimeout = $timeout ?? config('screenshot.default_timeout');
 
         $challengeWait = config('screenshot.detect_blocks')
             ? (int) ceil(config('screenshot.challenge_wait_ms') / 1000)
@@ -60,7 +69,7 @@ class CaptureScreenshot implements ShouldQueue
 
         $queueWaitGrace = (int) config('screenshot.queue_wait_grace');
 
-        return now()->addSeconds($queueWaitGrace + $browsershotTimeout + $challengeWait + 60);
+        return $queueWaitGrace + $browsershotTimeout + $challengeWait + 60;
     }
 
     public function handle(ChallengeDetector $detector, ChromeUserAgent $userAgents, PublicUrlGuard $guard): void
@@ -129,8 +138,11 @@ class CaptureScreenshot implements ShouldQueue
             ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
             ->setOption('waitUntil', $this->screenshot->wait_until)
             ->timeout($timeout)
-            ->setChromePath(config('screenshot.chrome_path'))
-            ->noSandbox();
+            ->setChromePath(config('screenshot.chrome_path'));
+
+        if (! config('screenshot.chrome_sandbox')) {
+            $browsershot->noSandbox();
+        }
 
         if (config('screenshot.new_headless')) {
             // Modern headless Chrome rather than the legacy headless shell,

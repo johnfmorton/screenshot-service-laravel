@@ -203,6 +203,12 @@ running the job, so queued time counts against it and an expired job is failed
 without ever being attempted. That is what `screenshot.queue_wait_grace` exists
 to absorb — size the window for backlog, not for one capture.
 
+Each API key may have at most `SCREENSHOT_MAX_PENDING_PER_KEY` (default 25)
+captures queued or running; more get a 429. With one worker, a single key
+submitting in bulk would otherwise delay every other client for hours, whatever
+its hourly rate limit. Rows past the capture deadline (`CaptureScreenshot::deadlineSeconds()`)
+don't count, so a worker that dies mid-job can't lock a key out.
+
 Three queue settings have to stay ordered: longest real capture (~360s, since
 the API caps `timeout` at 300 and Browsershot applies it to the Node process)
 < the worker's `--timeout` < `retry_after` on the queue connection. A worker
@@ -257,6 +263,28 @@ These flags help prevent Chrome from crashing or hanging on memory-intensive pag
 ```
 SCREENSHOT_CHROME_MEMORY_OPTIMIZED=false
 ```
+
+### Chrome Sandbox
+
+Chrome runs sandboxed by default (`SCREENSHOT_CHROME_SANDBOX=true`). It renders
+pages API clients choose, and without the sandbox a renderer exploit in one of
+them runs as the worker's user, with that user's access to `.env` files and the
+other sites on the box. Google Chrome from Google's apt repository ships the
+setuid helper the sandbox needs (`/opt/google/chrome/chrome-sandbox`, owned by
+root, mode `4755`).
+
+Check it works as the worker's user before deploying:
+
+```bash
+sudo -u forge /usr/bin/google-chrome --headless=new --disable-gpu --disable-dev-shm-usage \
+  --dump-dom 'data:text/html,<p>sandbox-ok</p>'
+```
+
+It should print the page with `sandbox-ok`. `No usable sandbox!` means the
+helper is missing or lost its setuid bit, or Chrome is running as root. Fix
+that rather than turning the sandbox off, and set `SCREENSHOT_CHROME_SANDBOX=false`
+only as a stopgap. DDEV sets it to false because Docker's default seccomp
+profile blocks the namespaces the sandbox needs.
 
 `--single-process` used to be part of this bundle and is now opt-in via
 `SCREENSHOT_CHROME_SINGLE_PROCESS=true`. Almost no real browser runs that way,

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ScreenshotStatus;
+use App\Exceptions\TooManyPendingCaptures;
 use App\Http\Requests\CreateScreenshotRequest;
+use App\Models\ApiKey;
 use App\Models\Screenshot;
 use App\Services\ScreenshotService;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +21,29 @@ class ScreenshotController extends Controller
     {
         $apiKey = $request->attributes->get('api_key');
 
-        $screenshot = $this->screenshotService->createScreenshot(
+        try {
+            $screenshot = $this->createScreenshot($request, $apiKey);
+        } catch (TooManyPendingCaptures $e) {
+            return response()->json([
+                'error' => 'Too many pending captures',
+                'message' => $e->getMessage(),
+            ], 429);
+        }
+
+        if ($screenshot->isCompleted()) {
+            return response()->json($this->formatScreenshot($screenshot), 200);
+        }
+
+        return response()->json([
+            'id' => $screenshot->id,
+            'status' => $screenshot->status->value,
+            'poll_url' => route('screenshots.show', $screenshot),
+        ], 202);
+    }
+
+    private function createScreenshot(CreateScreenshotRequest $request, ApiKey $apiKey): Screenshot
+    {
+        return $this->screenshotService->createScreenshot(
             apiKey: $apiKey,
             url: $request->input('url'),
             viewportWidth: $request->getViewportWidth(),
@@ -34,16 +58,6 @@ class ScreenshotController extends Controller
             webhookUrl: $request->getWebhookUrl(),
             webhookSecret: $request->getWebhookSecret(),
         );
-
-        if ($screenshot->isCompleted()) {
-            return response()->json($this->formatScreenshot($screenshot), 200);
-        }
-
-        return response()->json([
-            'id' => $screenshot->id,
-            'status' => $screenshot->status->value,
-            'poll_url' => route('screenshots.show', $screenshot),
-        ], 202);
     }
 
     public function show(Request $request, Screenshot $screenshot): JsonResponse

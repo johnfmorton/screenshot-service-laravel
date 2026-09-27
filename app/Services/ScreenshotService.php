@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ScreenshotStatus;
+use App\Exceptions\TooManyPendingCaptures;
 use App\Jobs\CaptureScreenshot;
 use App\Jobs\DeleteStoredScreenshots;
 use App\Models\ApiKey;
@@ -42,6 +43,8 @@ class ScreenshotService
             }
         }
 
+        $this->ensureCaptureCapacity($apiKey);
+
         $screenshot = Screenshot::create([
             'api_key_id' => $apiKey->id,
             'url' => $url,
@@ -63,6 +66,39 @@ class ScreenshotService
         CaptureScreenshot::dispatch($screenshot);
 
         return $screenshot;
+    }
+
+    /**
+     * Captures run one at a time per worker and can take minutes each, so a
+     * single key submitting in bulk could queue hours of work ahead of every
+     * other client — rate limit or not. This bounds each key's share.
+     *
+     * Rows older than a capture's deadline are ignored: their job can no
+     * longer run, and a worker that died mid-capture would otherwise leave
+     * them counting against the key until the daily cleanup.
+     *
+     * @throws TooManyPendingCaptures
+     */
+    private function ensureCaptureCapacity(ApiKey $apiKey): void
+    {
+        $limit = (int) config('screenshot.max_pending_per_key');
+
+        if ($limit < 1) {
+            return;
+        }
+
+        // 300 is the most a request may ask for (CreateScreenshotRequest), so
+        // this is the longest any queued capture can still be runnable.
+        $oldestRunnable = now()->subSeconds(CaptureScreenshot::deadlineSeconds(300));
+
+        $inFlight = Screenshot::where('api_key_id', $apiKey->id)
+            ->whereIn('status', [ScreenshotStatus::Pending, ScreenshotStatus::Processing])
+            ->where('created_at', '>=', $oldestRunnable)
+            ->count();
+
+        if ($inFlight >= $limit) {
+            throw new TooManyPendingCaptures($limit);
+        }
     }
 
     public function findCachedScreenshot(ApiKey $apiKey, string $urlHash): ?Screenshot

@@ -11,7 +11,10 @@ database:
     version: "10.11"
 use_dns_when_possible: true
 composer_version: "2"
-web_environment: []
+web_environment:
+    # Docker's default seccomp profile blocks the namespaces Chrome's sandbox
+    # needs, so local captures run unsandboxed. Production keeps the sandbox.
+    - SCREENSHOT_CHROME_SANDBOX=false
 corepack_enable: false
 web_extra_daemons:
     - name: "queue-worker"
