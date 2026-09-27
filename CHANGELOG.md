@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Pages that never go network-idle no longer fail. Ad- and tracker-heavy pages can keep making requests indefinitely, so a `networkidle0`/`networkidle2` capture waited its whole timeout and then failed: maxroll.gg settles in 8s from a residential connection but intermittently churned past 120s from the DigitalOcean server, while its `load` event fires in ~13s every time. Idleness now gets `SCREENSHOT_NETWORK_IDLE_TIMEOUT` (default `30` seconds, `0` restores the old behaviour); if the page hasn't settled by then, it is re-navigated and captured at `load` with whatever remains of the capture's timeout, so the total time never grows. Only Puppeteer's navigation timeout triggers this — a 403, a network error or an uncleared challenge is not retried
+
+### Added
+
+- `SCREENSHOT_HIDE_AUTOMATION` (default `false`) launches Chrome with `--disable-blink-features=AutomationControlled`, so `navigator.webdriver` reads false to page scripts. It can help with JavaScript bot checks, but not with blocks decided on the first request: nytimes.com returned 403 with it on, from both a DigitalOcean and a residential IP, over HTTP/1.1 and HTTP/2. It disguises automation, and some sites' terms forbid getting around their bot protection, so it stays opt-in
+
 ## [1.2.0] - 2026-09-27
 
 ### Security

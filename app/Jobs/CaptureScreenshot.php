@@ -89,8 +89,7 @@ class CaptureScreenshot implements ShouldQueue
             // between, and jobs queued before the check existed never had it.
             $guard->check($this->screenshot->url);
 
-            $browsershot = $this->buildBrowsershot($detector, $userAgents);
-            $browsershot->save($fullPath);
+            $browsershot = $this->capture($detector, $userAgents, $fullPath);
 
             $this->assertRedirectsStayedPublic($browsershot, $guard);
 
@@ -134,13 +133,99 @@ class CaptureScreenshot implements ShouldQueue
         }
     }
 
-    private function buildBrowsershot(ChallengeDetector $detector, ChromeUserAgent $userAgents): Browsershot
+    /**
+     * The shortest budget worth re-navigating with. Below this, a fallback
+     * would only turn one timeout into another.
+     */
+    private const MIN_FALLBACK_SECONDS = 10;
+
+    /**
+     * Captures the page, falling back to the `load` event when it never goes
+     * network-idle.
+     *
+     * networkidle0/2 waits for the page to stop making requests, and pages
+     * heavy with ads and trackers sometimes never do — maxroll.gg settles in
+     * 8s from a residential connection but can churn past two minutes from a
+     * datacenter IP, while its `load` event fires in ~13s every time. Waiting
+     * out the whole budget for idleness and then failing gave the client
+     * nothing, so idleness now gets a bounded window and the page is captured
+     * at `load` with whatever budget remains.
+     *
+     * Only a navigation timeout falls back. A 403, a network error or a
+     * challenge that never clears means something different, and a second
+     * attempt would just repeat it.
+     */
+    private function capture(ChallengeDetector $detector, ChromeUserAgent $userAgents, string $path): Browsershot
     {
-        $timeout = $this->screenshot->timeout ?? config('screenshot.default_timeout');
+        $budget = (int) ($this->screenshot->timeout ?? config('screenshot.default_timeout'));
+        $idleWindow = (int) config('screenshot.network_idle_timeout');
+        $waitUntil = $this->screenshot->wait_until ?? config('screenshot.default_wait_until');
+
+        $canFallBack = in_array($waitUntil, ['networkidle0', 'networkidle2'], true)
+            && $idleWindow > 0
+            && $idleWindow < $budget;
+
+        $browsershot = $this->buildBrowsershot($detector, $userAgents);
+
+        if (! $canFallBack) {
+            $this->takeScreenshot($browsershot, $path);
+
+            return $browsershot;
+        }
+
+        // Caps only Puppeteer's navigation wait. The process keeps the full
+        // budget, so a stalled page ends in a navigation timeout we can
+        // recognise rather than the process being killed mid-wait.
+        $browsershot->setOption('timeout', $idleWindow * 1000);
+        $started = now();
+
+        try {
+            $this->takeScreenshot($browsershot, $path);
+
+            return $browsershot;
+        } catch (ProcessFailedException $e) {
+            $remaining = $budget - (int) ceil($started->diffInSeconds(now(), true));
+
+            if (! $this->isNavigationTimeout($e) || $remaining < self::MIN_FALLBACK_SECONDS) {
+                throw $e;
+            }
+        }
+
+        Log::info('Page never went network-idle; capturing at load', [
+            'screenshot_id' => $this->screenshot->id,
+            'url' => $this->screenshot->url,
+            'wait_until' => $waitUntil,
+            'idle_window' => $idleWindow,
+            'remaining_budget' => $remaining,
+        ]);
+
+        $fallback = $this->buildBrowsershot($detector, $userAgents, 'load', $remaining);
+        $this->takeScreenshot($fallback, $path);
+
+        return $fallback;
+    }
+
+    protected function takeScreenshot(Browsershot $browsershot, string $path): void
+    {
+        $browsershot->save($path);
+    }
+
+    private function isNavigationTimeout(ProcessFailedException $e): bool
+    {
+        return (bool) preg_match('/^\w*Error: Navigation timeout of \d+ ms exceeded/m', $e->getProcess()->getErrorOutput());
+    }
+
+    private function buildBrowsershot(
+        ChallengeDetector $detector,
+        ChromeUserAgent $userAgents,
+        ?string $waitUntil = null,
+        ?int $timeout = null,
+    ): Browsershot {
+        $timeout ??= $this->screenshot->timeout ?? config('screenshot.default_timeout');
 
         $browsershot = Browsershot::url($this->screenshot->url)
             ->windowSize($this->screenshot->viewport_width, $this->screenshot->viewport_height)
-            ->setOption('waitUntil', $this->screenshot->wait_until)
+            ->setOption('waitUntil', $waitUntil ?? $this->screenshot->wait_until)
             ->timeout($timeout)
             ->setChromePath(config('screenshot.chrome_path'));
 
@@ -159,6 +244,11 @@ class CaptureScreenshot implements ShouldQueue
         if (config('screenshot.chrome_memory_optimized')) {
             $arguments[] = 'disable-dev-shm-usage';
             $arguments[] = 'disable-gpu';
+        }
+
+        if (config('screenshot.hide_automation')) {
+            // Opt-in; see config/screenshot.php for what this does and doesn't cover.
+            $arguments['disable-blink-features'] = 'AutomationControlled';
         }
 
         if (config('screenshot.chrome_single_process')) {

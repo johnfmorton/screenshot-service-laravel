@@ -62,6 +62,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Network Idle Timeout
+    |--------------------------------------------------------------------------
+    |
+    | How long a networkidle0/networkidle2 capture waits for the page to stop
+    | making requests before giving up on idleness and capturing at the `load`
+    | event instead, within the same overall timeout. Ad- and tracker-heavy
+    | pages can stay busy indefinitely; this turns that from a failure into a
+    | screenshot. Set to 0 to wait the full timeout for idleness, as before.
+    |
+    */
+    'network_idle_timeout' => (int) env('SCREENSHOT_NETWORK_IDLE_TIMEOUT', 30),
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Wait Grace
     |--------------------------------------------------------------------------
     |
@@ -151,6 +165,24 @@ return [
     |
     */
     'new_headless' => (bool) env('SCREENSHOT_NEW_HEADLESS', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Hide Automation
+    |--------------------------------------------------------------------------
+    |
+    | Launches Chrome with --disable-blink-features=AutomationControlled, so
+    | navigator.webdriver reads false instead of true. Some JavaScript bot
+    | checks (e.g. "checking your browser" interstitials) look at it.
+    |
+    | Off by default: it disguises automation rather than making the browser
+    | more coherent, and a site's terms may forbid getting around its bot
+    | protection. It also can't help with blocks decided before any page
+    | JavaScript runs: nytimes.com returns 403 on the first request with or
+    | without it, from a datacenter or a residential IP.
+    |
+    */
+    'hide_automation' => (bool) env('SCREENSHOT_HIDE_AUTOMATION', false),
 
     /*
     |--------------------------------------------------------------------------

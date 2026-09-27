@@ -369,4 +369,15 @@ and fills `screenshot.user_agent_template`. Setting `SCREENSHOT_DEFAULT_USER_AGE
 overrides all of that and re-pins the version, so leave it unset unless you have
 a reason.
 
+`SCREENSHOT_HIDE_AUTOMATION=true` (off by default) launches Chrome with
+`--disable-blink-features=AutomationControlled`, so `navigator.webdriver` reads
+false. It only affects JavaScript checks: blocks decided on the first request
+(nytimes.com's 403, measured from both a DigitalOcean and a residential IP,
+over HTTP/1.1 and HTTP/2) are unchanged by it.
+
+A `networkidle0`/`networkidle2` capture waits at most
+`SCREENSHOT_NETWORK_IDLE_TIMEOUT` (default 30s) for the page to go quiet, then
+re-navigates and captures at `load` with the remaining budget. Only Puppeteer's
+navigation timeout triggers that; see `CaptureScreenshot::capture()`.
+
 **Timeout on heavy pages**: If screenshots timeout even with memory optimization, try using `wait_until: "load"` instead of `networkidle2` in your API requests. WebGL sites often maintain continuous network activity and never reach "network idle".

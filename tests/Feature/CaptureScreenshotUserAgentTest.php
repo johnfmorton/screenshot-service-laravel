@@ -63,6 +63,18 @@ class CaptureScreenshotUserAgentTest extends TestCase
         }
     }
 
+    public function test_automation_is_not_hidden_by_default(): void
+    {
+        $this->assertNotContains('--disable-blink-features=AutomationControlled', $this->chromiumArguments());
+    }
+
+    public function test_automation_can_be_hidden_when_opted_in(): void
+    {
+        config(['screenshot.hide_automation' => true]);
+
+        $this->assertContains('--disable-blink-features=AutomationControlled', $this->chromiumArguments());
+    }
+
     public function test_the_language_header_is_still_sent(): void
     {
         config(['screenshot.default_headers' => ['Accept-Language' => 'en-US,en;q=0.9']]);
