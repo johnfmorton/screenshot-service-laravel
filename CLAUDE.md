@@ -259,6 +259,40 @@ SCREENSHOT_CHROME_MEMORY_OPTIMIZED=false
 so it is a strong bot-detection signal, and it crashes on heavy pages. Reach for
 it only when `--disable-dev-shm-usage` alone isn't enough.
 
+## SSRF Protection
+
+Capture and webhook URLs come from API clients but are fetched from inside our
+network, so every one goes through `app/Services/PublicUrlGuard.php`: `http`/`https`
+only, and every address the host resolves to must be public. It runs at
+validation (`App\Rules\PublicUrl`), again when `CaptureScreenshot` starts, and
+over Chrome's redirect chain before anything is uploaded. `SendWebhook` pins the
+connection to the checked address via `CURLOPT_RESOLVE` and refuses redirects.
+
+That is an application-level check, and it cannot see what Chrome does after
+navigation: subresources and iframes (`<iframe src="http://127.0.0.1:8080">`
+renders straight into the screenshot), or a DNS answer that changes between the
+check and Chrome's own lookup. **The real boundary is an egress firewall on the
+worker.** Run the queue worker as a dedicated user and drop its traffic to
+non-public ranges, e.g.:
+
+```bash
+for net in 127.0.0.0/8 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 169.254.0.0/16 100.64.0.0/10 0.0.0.0/8; do
+  sudo iptables -A OUTPUT -m owner --uid-owner screenshot -d "$net" -j REJECT
+done
+sudo ip6tables -A OUTPUT -m owner --uid-owner screenshot -d ::1/128 -j REJECT
+sudo ip6tables -A OUTPUT -m owner --uid-owner screenshot -d fc00::/7 -j REJECT
+sudo ip6tables -A OUTPUT -m owner --uid-owner screenshot -d fe80::/10 -j REJECT
+```
+
+On Forge every site runs as `forge` unless site isolation is on, so an owner
+match on `forge` would cut off every site on the box from its database and
+Redis. The worker needs its own user first. The worker's own database and Redis
+connections go to localhost as well, so that user needs `ACCEPT` rules for
+those ports ahead of the `REJECT`s.
+
+`SCREENSHOT_ALLOW_PRIVATE_URLS=true` disables the address check (the scheme is
+still enforced) for local development against `*.ddev.site` URLs.
+
 ## Bot Protection
 
 `CaptureScreenshot` recognises WAF blocks and challenge interstitials and records

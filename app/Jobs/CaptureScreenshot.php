@@ -6,6 +6,7 @@ use App\Enums\ScreenshotStatus;
 use App\Models\Screenshot;
 use App\Services\ChallengeDetector;
 use App\Services\ChromeUserAgent;
+use App\Services\PublicUrlGuard;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Drivers\Gd\Driver;
+use InvalidArgumentException;
 use Spatie\Browsershot\Browsershot;
 use Throwable;
 
@@ -61,7 +63,7 @@ class CaptureScreenshot implements ShouldQueue
         return now()->addSeconds($queueWaitGrace + $browsershotTimeout + $challengeWait + 60);
     }
 
-    public function handle(ChallengeDetector $detector, ChromeUserAgent $userAgents): void
+    public function handle(ChallengeDetector $detector, ChromeUserAgent $userAgents, PublicUrlGuard $guard): void
     {
         $this->screenshot->update(['status' => ScreenshotStatus::Processing]);
 
@@ -70,7 +72,14 @@ class CaptureScreenshot implements ShouldQueue
         $thumbnailPath = $tempDir . '/' . $this->screenshot->id . '-thumb.png';
 
         try {
-            $this->buildBrowsershot($detector, $userAgents)->save($fullPath);
+            // Checked again here, not just at request time: DNS can change in
+            // between, and jobs queued before the check existed never had it.
+            $guard->check($this->screenshot->url);
+
+            $browsershot = $this->buildBrowsershot($detector, $userAgents);
+            $browsershot->save($fullPath);
+
+            $this->assertRedirectsStayedPublic($browsershot, $guard);
 
             $manager = new ImageManager(new Driver());
 
@@ -178,6 +187,22 @@ class CaptureScreenshot implements ShouldQueue
         }
 
         return $browsershot;
+    }
+
+    /**
+     * A public page can redirect Chrome to an internal address. The request has
+     * already happened by now, but refusing to store the result keeps what
+     * came back from being published at a public image URL.
+     */
+    private function assertRedirectsStayedPublic(Browsershot $browsershot, PublicUrlGuard $guard): void
+    {
+        foreach ($browsershot->getOutput()?->getRedirectHistory() ?? [] as $hop) {
+            $url = $hop['url'] ?? '';
+
+            if (preg_match('#^https?://#i', $url) && ! $guard->isAllowed($url)) {
+                throw new InvalidArgumentException('The page redirected to an address that is not allowed.');
+            }
+        }
     }
 
     private function recordFailure(Throwable $e, ChallengeDetector $detector): void

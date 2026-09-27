@@ -4,11 +4,13 @@ namespace App\Jobs;
 
 use App\Enums\ScreenshotStatus;
 use App\Models\Screenshot;
+use App\Services\PublicUrlGuard;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Throwable;
 
 class SendWebhook implements ShouldQueue
@@ -22,9 +24,22 @@ class SendWebhook implements ShouldQueue
         public Screenshot $screenshot
     ) {}
 
-    public function handle(): void
+    public function handle(PublicUrlGuard $guard): void
     {
         if (!$this->screenshot->webhook_url) {
+            return;
+        }
+
+        try {
+            $target = $guard->check($this->screenshot->webhook_url);
+        } catch (InvalidArgumentException $e) {
+            // Not retried: the address won't become acceptable by waiting.
+            Log::warning('Webhook not sent: URL not allowed', [
+                'screenshot_id' => $this->screenshot->id,
+                'webhook_url' => $this->screenshot->webhook_url,
+                'reason' => $e->getMessage(),
+            ]);
+
             return;
         }
 
@@ -36,7 +51,13 @@ class SendWebhook implements ShouldQueue
             $headers['X-Signature-256'] = $signature;
         }
 
+        // Connect to the address that was just checked rather than letting
+        // the HTTP client resolve the host again, which a DNS record with a
+        // short TTL could answer differently. Redirects are refused for the
+        // same reason: the target would skip the check entirely.
         $response = Http::withHeaders($headers)
+            ->withOptions($this->pinnedResolution($target))
+            ->withoutRedirecting()
             ->timeout(30)
             ->post($this->screenshot->webhook_url, $payload);
 
@@ -52,6 +73,26 @@ class SendWebhook implements ShouldQueue
 
             throw new \Exception('Webhook delivery failed with status: ' . $response->status());
         }
+    }
+
+    /**
+     * @param  array{host: string, addresses: list<string>}  $target
+     */
+    private function pinnedResolution(array $target): array
+    {
+        if ($target['addresses'] === []) {
+            return [];
+        }
+
+        $address = $target['addresses'][0];
+        $port = parse_url($this->screenshot->webhook_url, PHP_URL_PORT)
+            ?? (str_starts_with(strtolower($this->screenshot->webhook_url), 'https:') ? 443 : 80);
+
+        if (str_contains($address, ':')) {
+            $address = "[{$address}]";
+        }
+
+        return ['curl' => [CURLOPT_RESOLVE => ["{$target['host']}:{$port}:{$address}"]]];
     }
 
     private function buildPayload(): array

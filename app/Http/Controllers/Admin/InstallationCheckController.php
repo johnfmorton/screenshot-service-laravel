@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use App\Models\Screenshot;
+use App\Rules\PublicUrl;
 use App\Services\ScreenshotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ class InstallationCheckController extends Controller
     public function runTest(Request $request, ScreenshotService $screenshotService): JsonResponse
     {
         $request->validate([
-            'url' => ['required', 'url', 'max:2048'],
+            'url' => ['required', 'url:http,https', 'max:2048', new PublicUrl],
         ]);
 
         // Get or create a system API key for testing

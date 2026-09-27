@@ -207,6 +207,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Allow Private URLs
+    |--------------------------------------------------------------------------
+    |
+    | Capture and webhook URLs must resolve to public addresses, so API clients
+    | can't use this service to reach the cloud metadata endpoint or anything
+    | listening on localhost or the private network. Enable only for local
+    | development (e.g. capturing a *.ddev.site URL) — never in production.
+    |
+    */
+    'allow_private_urls' => (bool) env('SCREENSHOT_ALLOW_PRIVATE_URLS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Block Detection
     |--------------------------------------------------------------------------
     |

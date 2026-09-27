@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Security
+
+- Capture and webhook URLs must now resolve to public addresses. Any API key could previously capture the cloud metadata endpoint (`169.254.169.254`), anything listening on `localhost`, or the private network, and read the result back as a publicly hosted image; webhooks could POST to the same places. `App\Services\PublicUrlGuard` resolves the host and rejects it if *any* address is loopback, private, link-local, CGNAT, reserved, multicast or NAT64, and fails closed on hosts that don't resolve (Chrome reads spellings like `0x7f.1` as loopback even though PHP can't resolve them). Only `http` and `https` are accepted
+- The check runs when the request arrives, again when the capture job starts (DNS can change in between, and jobs already queued never had it), and against Chrome's redirect chain after the capture — a public page that redirects to an internal address is recorded as `failed` and its image is never stored. Webhooks connect to the exact address that was checked and no longer follow redirects
+- Added `SCREENSHOT_ALLOW_PRIVATE_URLS` (default `false`) for local development against `*.ddev.site` URLs. Never enable it in production
+- The admin login is rate limited: five failures per email and IP locks that pair out for a minute, and the route allows 20 attempts per minute per IP to slow password spraying across accounts
+
 ## [1.1.1] - 2026-07-31
 
 ### Fixed

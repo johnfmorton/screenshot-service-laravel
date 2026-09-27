@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Route;
 // Guest routes (unauthenticated)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('admin.login');
-    Route::post('/login', [AuthController::class, 'login'])->name('admin.login.submit');
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:20,1')
+        ->name('admin.login.submit');
 });
 
 // Authenticated admin routes
