@@ -213,11 +213,13 @@ class CaptureScreenshot implements ShouldQueue
     /**
      * Retries a blocked capture once through SCREENSHOT_BLOCKED_RETRY_PROXY.
      *
-     * Most blocks this service sees are about the server's datacenter IP, not
-     * the browser: github.com and WordPress.com returned 403 to the capture
-     * from DigitalOcean but served identical Chrome from a residential
-     * connection. A proxy on a residential line fixes those. Everything else
-     * still goes direct, so the proxy only carries these retries.
+     * A safety net for blocks that are about the server's datacenter IP
+     * rather than the browser. None measured so far has been: github.com and
+     * WordPress.com 403'd this server only while its Chrome was five releases
+     * out of date, and captured directly once it was updated; nytimes.com
+     * blocks headless Chrome from any IP. So keep Chrome current first (the
+     * installation check flags it). Everything else still goes direct, and
+     * the proxy only carries these retries.
      *
      * The retry gets what remains of the capture's timeout. If it fails for
      * any reason other than another block (the proxy being unreachable, say),
@@ -226,7 +228,7 @@ class CaptureScreenshot implements ShouldQueue
      */
     private function captureAvoidingIpBlocks(ChallengeDetector $detector, ChromeUserAgent $userAgents, string $path): Browsershot
     {
-        $proxy = config('screenshot.blocked_retry_proxy');
+        $proxy = self::retryProxy();
         $budget = (int) ($this->screenshot->timeout ?? config('screenshot.default_timeout'));
         $started = now();
 
@@ -265,6 +267,21 @@ class CaptureScreenshot implements ShouldQueue
 
             throw $blocked;
         }
+    }
+
+    /**
+     * The configured retry proxy, or null when it's unset or isn't a proxy
+     * URL. `SCREENSHOT_BLOCKED_RETRY_PROXY=true` reads as boolean true, which
+     * would otherwise reach Chrome as --proxy-server=1 and fail every retry.
+     * The installation check reports an invalid value.
+     */
+    public static function retryProxy(): ?string
+    {
+        $proxy = config('screenshot.blocked_retry_proxy');
+
+        return is_string($proxy) && preg_match('#^(https?|socks[45]?)://[^\s/]+$#i', rtrim($proxy, '/'))
+            ? rtrim($proxy, '/')
+            : null;
     }
 
     protected function takeScreenshot(Browsershot $browsershot, string $path): void

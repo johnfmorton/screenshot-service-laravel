@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\CaptureScreenshot;
 use App\Models\ApiKey;
 use App\Models\Screenshot;
 use App\Rules\PublicUrl;
+use App\Services\ChromeReleases;
+use App\Services\ChromeUserAgent;
 use App\Services\ScreenshotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -178,7 +181,75 @@ class InstallationCheckController extends Controller
             ];
         }
 
-        return [...$checks, ...$this->getSecurityChecks()];
+        $browserChecks = $chromeFound ? $this->getBrowserChecks() : [];
+
+        return [...$checks, ...$browserChecks, ...$this->getSecurityChecks()];
+    }
+
+    /**
+     * An outdated Chrome was the real cause of captures being blocked by
+     * github.com and WordPress.com, and it renders untrusted pages, so it's
+     * a security problem too. One release behind is normal (rollouts take
+     * days); two or more means updates have stopped.
+     */
+    private function getBrowserChecks(): array
+    {
+        $installed = app(ChromeUserAgent::class)->installedMajorVersion();
+        $latest = app(ChromeReleases::class)->latestStableMajor();
+        $behind = $installed !== null && $latest !== null ? $latest - (int) $installed : null;
+
+        $checks = [[
+            'name' => 'Chrome version',
+            'value' => ($installed ?? 'unknown') . ($latest !== null ? " (latest stable: {$latest})" : ''),
+            'status' => match (true) {
+                $installed === null => 'error',
+                $behind === null => 'warning',
+                $behind >= 2 => 'error',
+                default => 'success',
+            },
+            'message' => match (true) {
+                $installed === null => 'Could not read the installed Chrome version',
+                $behind === null => "Couldn't reach Google's release API to compare versions",
+                $behind >= 2 => "{$behind} releases behind. An outdated Chrome gets captures blocked and misses security fixes for the pages it renders. Update with: sudo apt-get install --only-upgrade google-chrome-stable",
+                default => null,
+            },
+        ]];
+
+        $raw = config('screenshot.blocked_retry_proxy');
+        $proxy = CaptureScreenshot::retryProxy();
+
+        if ($raw === null || $raw === '') {
+            return [...$checks, [
+                'name' => 'SCREENSHOT_BLOCKED_RETRY_PROXY',
+                'value' => '(not set)',
+                'status' => 'success',
+                'message' => 'Blocked captures are not retried through a proxy',
+            ]];
+        }
+
+        if ($proxy === null) {
+            return [...$checks, [
+                'name' => 'SCREENSHOT_BLOCKED_RETRY_PROXY',
+                'value' => var_export($raw, true),
+                'status' => 'error',
+                'message' => 'Not a proxy URL, so it is ignored. Expected something like http://100.111.58.60:3128',
+            ]];
+        }
+
+        $parts = parse_url($proxy);
+        $port = $parts['port'] ?? (str_starts_with($parts['scheme'], 'socks') ? 1080 : 3128);
+        $reachable = @fsockopen($parts['host'], $port, $errno, $errstr, 2);
+
+        if ($reachable) {
+            fclose($reachable);
+        }
+
+        return [...$checks, [
+            'name' => 'SCREENSHOT_BLOCKED_RETRY_PROXY',
+            'value' => $proxy,
+            'status' => $reachable ? 'success' : 'warning',
+            'message' => $reachable ? null : "Can't connect to the proxy, so blocked captures won't be retried until it's back",
+        ]];
     }
 
     /**

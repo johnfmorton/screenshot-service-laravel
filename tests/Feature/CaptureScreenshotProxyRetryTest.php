@@ -66,6 +66,23 @@ class CaptureScreenshotProxyRetryTest extends TestCase
         $this->assertSame([['proxy' => null, 'processTimeout' => 120]], $this->attempts);
     }
 
+    /**
+     * SCREENSHOT_BLOCKED_RETRY_PROXY=true resolves to boolean true, which
+     * would reach Chrome as --proxy-server=1 and fail every retry.
+     */
+    public function test_a_proxy_setting_that_is_not_a_url_is_ignored(): void
+    {
+        foreach ([true, 'true', '1', 'daisy', '100.111.58.60:3128'] as $invalid) {
+            config(['screenshot.blocked_retry_proxy' => $invalid]);
+            $this->assertNull(CaptureScreenshot::retryProxy(), var_export($invalid, true));
+        }
+
+        foreach (['http://100.111.58.60:3128', 'http://100.111.58.60:3128/', 'socks5://10.0.0.1:1080'] as $valid) {
+            config(['screenshot.blocked_retry_proxy' => $valid]);
+            $this->assertSame(rtrim($valid, '/'), CaptureScreenshot::retryProxy());
+        }
+    }
+
     public function test_nothing_is_retried_without_a_proxy(): void
     {
         config(['screenshot.blocked_retry_proxy' => null]);

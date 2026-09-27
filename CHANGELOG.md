@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- The admin installation check compares the installed Chrome with the latest stable release (from Google's version history API, cached 12 hours) and flags it as an error once it is two or more releases behind. The production server's Chrome had silently sat five releases behind, because Ubuntu's unattended upgrades only cover Ubuntu's own packages. That outdated browser was the real cause of the github.com and WordPress.com blocks, and it was rendering untrusted pages without months of security fixes. To keep Chrome current, add Google's origin to unattended upgrades: `Unattended-Upgrade::Origins-Pattern { "origin=Google LLC"; };` in `/etc/apt/apt.conf.d/51unattended-upgrades-google-chrome`
+- The installation check shows whether `SCREENSHOT_BLOCKED_RETRY_PROXY` is unset, invalid, or set, and whether the proxy is reachable
+
+### Fixed
+
+- A `SCREENSHOT_BLOCKED_RETRY_PROXY` value that isn't a proxy URL, such as `true`, is now ignored and flagged on the installation check. It used to reach Chrome as `--proxy-server=1`, failing every retry
+
+### Corrected
+
+- v1.4.0 said most blocks came from the server's datacenter IP. They didn't: the github.com, WordPress.com and securingelections.org 403s happened only while the server's Chrome was five releases out of date, still happened through the residential proxy, and cleared when Chrome was updated, with no proxy. The comparison that suggested the IP had also changed the browser version. nytimes.com blocks headless Chrome from any IP. The retry proxy remains available as a fallback for IP-based blocks, but none has been observed yet
+
 ## [1.4.0] - 2026-09-27
 
 ### Added

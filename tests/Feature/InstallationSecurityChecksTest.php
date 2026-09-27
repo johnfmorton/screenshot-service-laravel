@@ -10,6 +10,14 @@ class InstallationSecurityChecksTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The page also checks Chrome's version against Google's release API.
+        \Illuminate\Support\Facades\Http::fake(['*' => ['versions' => [['version' => '154.0.0.0']]]]);
+    }
+
     public function test_risky_production_settings_are_flagged(): void
     {
         $this->app['env'] = 'production';

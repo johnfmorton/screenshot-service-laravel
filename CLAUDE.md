@@ -382,10 +382,16 @@ navigation timeout triggers that; see `CaptureScreenshot::capture()`.
 
 ### Blocked Retry Proxy
 
-Most blocks are about the server's DigitalOcean IP, not the browser: github.com
-and WordPress.com 403 the server but serve identical Chrome on a residential
-line. With `SCREENSHOT_BLOCKED_RETRY_PROXY` set, a capture recorded as blocked is
-retried once through that proxy with the remaining budget
+**Check the Chrome version before blaming the IP.** github.com and WordPress.com
+403'd this server while its Chrome was five releases behind (Ubuntu's
+unattended upgrades didn't cover Google's repo), and a residential proxy didn't
+help; updating Chrome did. The installation check now flags an outdated Chrome.
+nytimes.com blocks headless Chrome from any IP.
+
+For blocks that genuinely are about the datacenter IP, set
+`SCREENSHOT_BLOCKED_RETRY_PROXY` to a proxy URL (not `true`; invalid values are
+ignored and flagged on the installation check). A capture recorded as blocked
+is then retried once through it with the remaining budget
 (`CaptureScreenshot::captureAvoidingIpBlocks()`). Everything else goes direct.
 If the retry fails for a non-block reason (proxy down), the original block is
 kept and a warning logged.

@@ -171,10 +171,14 @@ return [
     | Blocked Retry Proxy
     |--------------------------------------------------------------------------
     |
-    | A proxy to retry a capture through when the direct attempt is blocked,
-    | e.g. http://100.111.58.60:3128. Most blocks come from the server's
-    | datacenter IP rather than the browser, so a proxy on a residential line
-    | clears them. Only blocked captures use it; everything else goes direct.
+    | A proxy URL to retry a capture through when the direct attempt is
+    | blocked, e.g. http://100.111.58.60:3128 — the full URL, not `true`.
+    | Only blocked captures use it; everything else goes direct.
+    |
+    | It helps only with blocks aimed at the server's datacenter IP. None seen
+    | so far has been: the github.com/WordPress.com 403s were caused by an
+    | outdated Chrome and cleared once it was updated, and nytimes.com blocks
+    | headless Chrome from any IP. Keep Chrome current before relying on this.
     |
     | The proxy MUST refuse private destinations (RFC 1918, loopback,
     | link-local, CGNAT/Tailscale). Pages loaded through it reach whatever

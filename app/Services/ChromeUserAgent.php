@@ -67,7 +67,7 @@ class ChromeUserAgent
      * user-agent reduction, so matching that shape means only the major has to
      * be accurate.
      */
-    private function installedMajorVersion(): ?string
+    public function installedMajorVersion(): ?string
     {
         $path = config('screenshot.chrome_path');
 
