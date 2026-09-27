@@ -274,7 +274,7 @@ class CaptureScreenshot implements ShouldQueue
     private function clientMessage(Throwable $e): string
     {
         return match (true) {
-            $e instanceof UrlNotAllowed, $e instanceof UnsuccessfulResponse => $e->getMessage(),
+            $e instanceof UrlNotAllowed, $e instanceof UnsuccessfulResponse => trim($e->getMessage()),
             $e instanceof ProcessTimedOutException => "The capture timed out after {$e->getExceededTimeout()} seconds.",
             $e instanceof ProcessFailedException => $this->browserError($e) ?? 'The browser failed to capture the page.',
             default => 'The capture failed because of an internal error.',

@@ -59,6 +59,15 @@ class CaptureScreenshotFailureTest extends TestCase
         $this->assertStringContainsString('The command', $screenshot->error_detail);
     }
 
+    public function test_an_error_status_is_reported_without_the_trailing_newline(): void
+    {
+        // Browsershot builds this message from stderr, newline included.
+        $screenshot = $this->recordFailure(UnsuccessfulResponse::make('https://example.com', "404\n"));
+
+        $this->assertSame(ScreenshotStatus::Failed, $screenshot->status);
+        $this->assertSame('The given url `https://example.com` responds with code 404', $screenshot->error_message);
+    }
+
     public function test_a_navigation_timeout_is_reported(): void
     {
         $screenshot = $this->recordFailure($this->browserFailure(

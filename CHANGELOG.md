@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added `SCREENSHOT_S3_PUBLIC_ACL` (default `true`, preserving the current public-read uploads). Behind CloudFront with origin access control, set it to `false` and keep Block Public Access on; CLAUDE.md no longer says to turn Block Public Access off
 - A rejected upload now fails the capture. The S3 disk doesn't throw, so a failed `put` used to be recorded as `completed` with image URLs that 404
 - The admin installation check flags risky settings outside local development: `APP_DEBUG`, `SCREENSHOT_ALLOW_PRIVATE_URLS`, the Chrome sandbox, `SESSION_SECURE_COOKIE` on HTTPS, and a public S3 ACL behind CloudFront
-- Updated `league/commonmark` to 2.10.3 (10 advisories; not reachable from this app's own code) and, within existing ranges, `puppeteer` to 24.43.1 and `js-yaml` to 4.3.2. `puppeteer`'s `extract-zip` advisory remains: fixing it needs Puppeteer 25, which requires Node 22.12+, and the affected code only runs when Puppeteer downloads its own Chrome, which this app never does
+- Updated `league/commonmark` to 2.10.3 (10 advisories; not reachable from this app's own code), `js-yaml` to 4.3.2, and `puppeteer` to 25.12.0, which clears the `extract-zip` advisory. `composer audit` and `npm audit` are both clean. **Puppeteer 25 requires Node 22.12 or newer**; the production box runs 22.23.1. Captures, error reporting, block detection and the redirect check were re-verified end to end on it
 - The admin login is rate limited: five failures per email and IP locks that pair out for a minute, and the route allows 20 attempts per minute per IP to slow password spraying across accounts
 
 ## [1.1.1] - 2026-07-31
