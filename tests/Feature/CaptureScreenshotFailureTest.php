@@ -150,10 +150,7 @@ class CaptureScreenshotFailureTest extends TestCase
      */
     private function recordFailure(Throwable $exception, array $attributes = []): Screenshot
     {
-        $apiKey = ApiKey::create([
-            'name' => 'Test Key',
-            'key' => 'test-key-' . uniqid(),
-        ]);
+        $apiKey = ApiKey::generate('Test Key');
 
         $screenshot = Screenshot::create(array_merge([
             'api_key_id' => $apiKey->id,

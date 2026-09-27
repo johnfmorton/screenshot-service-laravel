@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use App\Models\User;
+use App\Services\ScreenshotService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -76,7 +77,7 @@ class ApiKeyController extends Controller
 
         return redirect()->route('admin.api-keys.index')
             ->with('success', 'API key created successfully.')
-            ->with('new_key', $apiKey->key);
+            ->with('new_key', $apiKey->plainTextKey);
     }
 
     public function edit(ApiKey $apiKey): View|RedirectResponse
@@ -131,7 +132,7 @@ class ApiKeyController extends Controller
             ->with('success', "API key {$status} successfully.");
     }
 
-    public function destroy(ApiKey $apiKey): RedirectResponse
+    public function destroy(ApiKey $apiKey, ScreenshotService $screenshotService): RedirectResponse
     {
         $user = Auth::user();
 
@@ -140,7 +141,7 @@ class ApiKeyController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $apiKey->delete();
+        $screenshotService->deleteApiKey($apiKey);
 
         return redirect()->route('admin.api-keys.index')
             ->with('success', 'API key deleted successfully.');

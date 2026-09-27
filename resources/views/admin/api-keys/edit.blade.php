@@ -8,7 +8,7 @@
 
             <div class="form-group" style="margin-bottom: 24px;">
                 <label class="form-label">API Key</label>
-                <code class="key-display" style="font-size: 0.75rem;">{{ $apiKey->key }}</code>
+                <code class="key-display" style="font-size: 0.75rem;">{{ $apiKey->maskedKey() }}</code>
             </div>
 
             <form action="{{ route('admin.api-keys.update', $apiKey) }}" method="POST">

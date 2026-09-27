@@ -19,6 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(fn () => route('admin.login'));
+
+        // Authenticate before route model binding. Otherwise an unknown
+        // screenshot ID 404s before the key is checked, which tells a caller
+        // with no valid key which IDs exist.
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Http\Middleware\ValidateApiKey::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

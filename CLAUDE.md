@@ -85,7 +85,11 @@ app/
 
 ### Database Tables
 
-- `api_keys` - API authentication keys with rate limits
+- `api_keys` - API authentication keys with rate limits. Only a SHA-256 hash
+  (`key_hash`) and a display prefix are stored; the full key exists once, on the
+  instance `ApiKey::generate()` returns (`plainTextKey`). Look keys up with
+  `ApiKey::findByPlainTextKey()`. Delete keys through
+  `ScreenshotService::deleteApiKey()`, which also clears their stored images.
 - `screenshots` - Screenshot requests with status, image paths, webhook config
 
 ### Caching Strategy

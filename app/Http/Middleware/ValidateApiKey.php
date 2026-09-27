@@ -20,7 +20,7 @@ class ValidateApiKey
             ], 401);
         }
 
-        $apiKey = ApiKey::where('key', $apiKeyHeader)->first();
+        $apiKey = ApiKey::findByPlainTextKey($apiKeyHeader);
 
         if (!$apiKey) {
             return response()->json([

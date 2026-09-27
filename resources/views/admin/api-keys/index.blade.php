@@ -8,6 +8,7 @@
             <div>
                 <strong>API key created successfully!</strong>
                 <div class="key-display" style="margin-top: 10px;">{{ session('new_key') }}</div>
+                <div style="margin-top: 8px;">Copy it now. Only a hash is stored, so it can't be shown again.</div>
             </div>
         </div>
     @endif
@@ -55,7 +56,7 @@
                                     {{ $apiKey->name }}
                                 </td>
                                 <td>
-                                    <code class="key-display" style="font-size: 0.75rem;">{{ $apiKey->key }}</code>
+                                    <code class="key-display" style="font-size: 0.75rem;">{{ $apiKey->maskedKey() }}</code>
                                 </td>
                                 <td>
                                     @if($apiKey->is_active)

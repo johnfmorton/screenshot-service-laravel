@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use App\Models\User;
+use App\Services\ScreenshotService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,7 +64,7 @@ class UserController extends Controller
                 $validated['new_api_key_rate_limit'] ?? null
             );
             $apiKey->update(['user_id' => $user->id]);
-            $newKey = $apiKey->key;
+            $newKey = $apiKey->plainTextKey;
         }
 
         $redirect = redirect()->route('admin.users.index')
@@ -94,7 +95,7 @@ class UserController extends Controller
             ->with('success', "User {$status}.");
     }
 
-    public function destroy(User $user): RedirectResponse
+    public function destroy(User $user, ScreenshotService $screenshotService): RedirectResponse
     {
         $this->authorizeSuperAdmin();
 
@@ -102,6 +103,12 @@ class UserController extends Controller
         if ($user->id === Auth::id()) {
             return redirect()->route('admin.users.index')
                 ->with('error', 'You cannot delete your own account.');
+        }
+
+        // Keys go first and explicitly: the foreign key used to null the
+        // owner instead, leaving a deleted user's key active and ownerless.
+        foreach ($user->apiKeys as $apiKey) {
+            $screenshotService->deleteApiKey($apiKey);
         }
 
         $user->delete();

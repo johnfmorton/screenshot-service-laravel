@@ -44,7 +44,7 @@ class SsrfProtectionTest extends TestCase
             default => gethostbynamel($host) ?: [],
         }));
 
-        $this->apiKey = ApiKey::create(['name' => 'Test Key', 'key' => 'test-key-' . uniqid(), 'is_active' => true]);
+        $this->apiKey = ApiKey::generate('Test Key');
     }
 
     public function test_the_api_rejects_a_private_capture_url(): void
@@ -167,7 +167,7 @@ class SsrfProtectionTest extends TestCase
      */
     private function headers(): array
     {
-        return ['X-API-Key' => $this->apiKey->key];
+        return ['X-API-Key' => $this->apiKey->plainTextKey];
     }
 
     /**

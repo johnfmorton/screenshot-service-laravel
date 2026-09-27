@@ -27,13 +27,13 @@ class ApiKeyCreate extends Command
             [
                 ['ID', $apiKey->id],
                 ['Name', $apiKey->name],
-                ['Key', $apiKey->key],
+                ['Key', $apiKey->plainTextKey],
                 ['Rate Limit', $apiKey->rate_limit ?? 'None'],
                 ['Active', $apiKey->is_active ? 'Yes' : 'No'],
             ]
         );
         $this->newLine();
-        $this->info('You can view this key anytime in the admin panel or by running apikey:list.');
+        $this->warn('Copy this key now. Only a hash is stored, so it cannot be shown again.');
 
         return Command::SUCCESS;
     }

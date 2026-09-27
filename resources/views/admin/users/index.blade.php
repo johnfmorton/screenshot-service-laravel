@@ -8,6 +8,7 @@
             <div>
                 <strong>New API key created for this user!</strong>
                 <div class="key-display" style="margin-top: 10px;">{{ session('new_key') }}</div>
+                <div style="margin-top: 8px;">Copy it now. Only a hash is stored, so it can't be shown again.</div>
             </div>
         </div>
     @endif

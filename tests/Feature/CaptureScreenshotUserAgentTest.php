@@ -102,10 +102,7 @@ class CaptureScreenshotUserAgentTest extends TestCase
      */
     private function buildBrowsershot(array $attributes = []): Browsershot
     {
-        $apiKey = ApiKey::create([
-            'name' => 'Test Key',
-            'key' => 'test-key-' . uniqid(),
-        ]);
+        $apiKey = ApiKey::generate('Test Key');
 
         $screenshot = Screenshot::create(array_merge([
             'api_key_id' => $apiKey->id,

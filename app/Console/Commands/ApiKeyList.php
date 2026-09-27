@@ -25,7 +25,7 @@ class ApiKeyList extends Command
             $apiKeys->map(fn (ApiKey $key) => [
                 $key->id,
                 $key->name,
-                $key->key,
+                $key->maskedKey(),
                 $key->is_active ? 'Yes' : 'No',
                 $key->rate_limit ?? 'None',
                 $key->screenshots()->count(),

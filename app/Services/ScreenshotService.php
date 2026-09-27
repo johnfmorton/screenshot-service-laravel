@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ScreenshotStatus;
 use App\Jobs\CaptureScreenshot;
+use App\Jobs\DeleteStoredScreenshots;
 use App\Models\ApiKey;
 use App\Models\Screenshot;
 use Carbon\Carbon;
@@ -86,5 +87,30 @@ class ScreenshotService
         }
 
         $screenshot->delete();
+    }
+
+    /**
+     * Revokes the key immediately and clears its stored images afterwards.
+     *
+     * The rows go with the key through the foreign key cascade. Deleting the
+     * key directly used to orphan every image it had captured, since nothing
+     * else knows those paths once the rows are gone.
+     */
+    public function deleteApiKey(ApiKey $apiKey): void
+    {
+        $paths = $apiKey->screenshots()
+            ->toBase()
+            ->get(['full_image_path', 'thumbnail_path'])
+            ->flatMap(fn (object $row): array => [$row->full_image_path, $row->thumbnail_path])
+            ->filter()
+            ->values();
+
+        $apiKey->delete();
+
+        $disk = config('screenshot.storage_disk');
+
+        foreach ($paths->chunk(500) as $chunk) {
+            DeleteStoredScreenshots::dispatch($disk, $chunk->values()->all());
+        }
     }
 }
