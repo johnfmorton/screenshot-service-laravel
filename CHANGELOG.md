@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Security
+
+- Updated Composer dependencies within existing constraints (Laravel 12.72, Symfony 7.4, league/flysystem), fixing the Laravel TokenGuard authentication bypass and advisories in symfony/http-foundation and symfony/yaml.
+- Updated npm dependencies (Vite 7.3.8, axios, follow-redirects, shell-quote, zod), clearing all npm audit findings.
+
 ## [1.5.0] - 2026-09-27
 
 ### Added
